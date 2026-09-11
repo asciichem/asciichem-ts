@@ -29,7 +29,8 @@
     "test": "npm run grammar && vitest run",
     "test:watch": "vitest",
     "typecheck": "npm run grammar && tsc --noEmit",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test",
+    "prepare": "npm run build"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
