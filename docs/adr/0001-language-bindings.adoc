@@ -1,0 +1,47 @@
+# ADR-0001: Language-binding strategy
+
+- **Status:** accepted (2026-09-12)
+- **Deciders:** AsciiChem maintainers
+
+## Context
+
+AsciiChem needs TypeScript and Python APIs in addition to the Ruby
+reference implementation. Two viable shapes exist, and one deliberate
+non-option:
+
+- **A. Per-language implementations against the shared model + corpus**
+  (the CommonMark pattern). Each language implements the parser,
+  model, and formatters natively, conforming to `asciichem-model`
+  schemas and passing `asciichem-tests`.
+- **B. One Rust core, FFI bindings per language** (the tiktoken
+  pattern). Parser + model live in Rust; bindings for Ruby, Python,
+  TypeScript (napi-rs / wasm-bindgen).
+- **Non-option: wrappers over the Ruby gem.** The gem is the reference
+  implementation, not a runtime dependency for other ecosystems.
+
+## Decision
+
+**Strategy A.** Ship TS and PY as native implementations conforming to
+the shared contracts. Lowest total risk, no native-artifact CI, and
+the single-parser rule evolves cleanly into a single-contract rule:
+*all implementations pass the same corpus* — verified per-implementation
+in CI, with an explicit claimed-levels table.
+
+## Revisit triggers for B
+
+1. Performance becomes a stated requirement at document scale.
+2. A third or fourth language lands and per-language drift cost
+   exceeds one Rust rewrite plus bindings.
+3. A WASM playground demands byte-parity with the reference parser.
+
+None had fired as of this ADR; (3) was deliberately declined for the
+site playground in favour of the corpus-conformant TS implementation
+(the playground is not a correctness-critical rendering path).
+
+## Consequences
+
+- `asciichem-ts` (this repo) is a full peggy port of the reference
+  grammar, claiming parse/reject, L0, and L1 at 100% of the corpus.
+- Adding an output format never edits the model (visitor extension).
+- Wire-form drift is prevented by schema validation in every
+  implementation's conformance suite.

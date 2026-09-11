@@ -1,0 +1,41 @@
+{
+  "name": "asciichem",
+  "version": "0.1.0",
+  "description": "TypeScript implementation of AsciiChem \u2014 parse ASCII chemistry into a semantic model and render Text, SVG, and canonical JSON wire form. Conformant with asciichem-model v1 and the asciichem-tests corpus.",
+  "license": "BSD-2-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asciichem/asciichem-ts.git"
+  },
+  "homepage": "https://asciichem.org",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "grammar": "peggy --format es -o src/generated/parser.mjs grammar/asciichem.pegjs",
+    "build": "npm run grammar && tsc && mkdir -p dist/generated && cp src/generated/parser.mjs src/generated/parser.d.mts dist/generated/",
+    "test": "npm run grammar && vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run grammar && tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "peggy": "^4.2.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8",
+    "yaml": "^2.6.1"
+  }
+}

@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone conformance corpus (asciichem-tests)
+        run: git clone --depth 1 https://github.com/asciichem/asciichem-tests.git ../asciichem-tests
+      - name: Clone model schemas (asciichem-model)
+        run: git clone --depth 1 https://github.com/asciichem/asciichem-model.git ../asciichem-model
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Verify vendored wire types are current
+        run: |
+          diff src/generated/parser.mjs <(npx peggy --format es -o /dev/stdout grammar/asciichem.pegjs 2>/dev/null) \
+            || (echo "grammar/asciichem.pegjs is stale — run npm run grammar"; exit 1)
+      - run: npm test
