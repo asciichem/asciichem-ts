@@ -226,6 +226,8 @@ function bondGlyph(bond: Bond): string {
       return "→";
     case "wavy":
       return "∼";
+    case "aromatic":
+      return ":";
   }
 }
 

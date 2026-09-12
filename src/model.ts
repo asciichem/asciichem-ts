@@ -12,7 +12,8 @@ export type BondKind =
   | "wedge"
   | "hash"
   | "dative"
-  | "wavy";
+  | "wavy"
+  | "aromatic";
 export type BracketKind = "paren" | "square" | "brace";
 export type StereoKind = "R" | "S" | "E" | "Z" | "alpha" | "beta";
 
@@ -25,6 +26,7 @@ export const BOND_KINDS: Record<BondKind, { ascii: string }> = {
   hash: { ascii: "-<" },
   dative: { ascii: "~>" },
   wavy: { ascii: "~~" },
+  aromatic: { ascii: ":" },
 };
 
 export const ARROW_KINDS: Record<ArrowKind, { ascii: string; wire: ArrowKind }> = {
@@ -106,6 +108,14 @@ export abstract class Node {
   toModelJSON(): WireNode {
     return renderWith<WireNode>("wire", this);
   }
+
+  toSmiles(): string {
+    return renderWith<string>("smiles", this);
+  }
+
+  toMolfile(name?: string): string {
+    return renderWith<string>("molfile", this);
+  }
 }
 
 export class Formula extends Node {
@@ -129,7 +139,9 @@ export class Atom extends Node {
     readonly oxidationState?: string,
     readonly lonePairs?: number,
     readonly radicalElectrons?: number,
-    readonly ringClosures?: string,
+    public ringClosures?: string,
+    readonly aromatic?: boolean,
+    readonly hydrogens?: number,
     readonly x2?: number,
     readonly y2?: number,
     readonly z2?: number,
@@ -142,6 +154,34 @@ export class Atom extends Node {
   ) {
     super();
   }
+  // Immutably-constructed atoms are awkward to adjust during
+  // ingestion (molfile property blocks, aromatic marking); patch
+  // returns a copy with the named fields replaced.
+  patch(changes: Partial<Omit<Atom, "type" | "accept" | "patch" | "toSmiles" | "toMolfile">>): Atom {
+    return new Atom(
+      changes.element ?? this.element,
+      "isotope" in changes ? changes.isotope : this.isotope,
+      "subscript" in changes ? changes.subscript : this.subscript,
+      "superscript" in changes ? changes.superscript : this.superscript,
+      "charge" in changes ? changes.charge : this.charge,
+      "oxidationState" in changes ? changes.oxidationState : this.oxidationState,
+      "lonePairs" in changes ? changes.lonePairs : this.lonePairs,
+      "radicalElectrons" in changes ? changes.radicalElectrons : this.radicalElectrons,
+      "ringClosures" in changes ? changes.ringClosures : this.ringClosures,
+      "aromatic" in changes ? changes.aromatic : this.aromatic,
+      "hydrogens" in changes ? changes.hydrogens : this.hydrogens,
+      "x2" in changes ? changes.x2 : this.x2,
+      "y2" in changes ? changes.y2 : this.y2,
+      "z2" in changes ? changes.z2 : this.z2,
+      "atomParity" in changes ? changes.atomParity : this.atomParity,
+      "spinMultiplicity" in changes ? changes.spinMultiplicity : this.spinMultiplicity,
+      "atomTitle" in changes ? changes.atomTitle : this.atomTitle,
+      "xFract" in changes ? changes.xFract : this.xFract,
+      "yFract" in changes ? changes.yFract : this.yFract,
+      "zFract" in changes ? changes.zFract : this.zFract,
+    );
+  }
+
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitAtom(this);
   }

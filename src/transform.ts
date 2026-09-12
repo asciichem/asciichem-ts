@@ -173,6 +173,8 @@ class AtomBuilder {
       lewisCount(c.lonePairs),
       lewisCount(c.radicalElectrons),
       nonEmpty(c.ringClosures),
+      undefined,
+      undefined,
       floatOrNil(c.x2),
       floatOrNil(c.y2),
       floatOrNil(c.z2),

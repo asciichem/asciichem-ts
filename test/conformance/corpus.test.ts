@@ -8,14 +8,22 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseText } from "../../src/parser.js";
 import { ParseError } from "../../src/errors.js";
+import { parseSmiles, parseMolfile, writeMolfile } from "../../src/index.js";
+import { buildGraph } from "../../src/structure.js";
 import "../../src/index.js";
 import { wireValidator } from "./schemas.js";
 
 interface Fixture {
   id: string;
-  input: string;
+  input?: string;
+  smiles?: string;
+  molfile?: string;
   parses?: boolean;
   roundTrip?: boolean;
+  smilesRoundTrip?: boolean;
+  molfileRoundTrip?: boolean;
+  atoms?: number;
+  bonds?: number;
   [key: string]: unknown;
 }
 
@@ -28,8 +36,11 @@ function loadFixtures(): Fixture[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((f) => f.endsWith(".json"))
-    .flatMap((f) => JSON.parse(readFileSync(join(dir, f), "utf8")) as Fixture[])
-    .filter((f) => typeof f.input === "string");
+    .flatMap((f) => JSON.parse(readFileSync(join(dir, f), "utf8")) as Fixture[]);
+}
+
+function fixturesInput(f: Fixture): string {
+  return f.input as string;
 }
 
 const available = existsSync(join(corpusDir(), "corpus", "fixtures"));
@@ -43,7 +54,7 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   });
 
   describe("parse/reject contract", () => {
-    for (const fixture of fixtures) {
+    for (const fixture of fixtures.filter((f) => typeof f.input === "string")) {
       it(`${fixture.id}: ${JSON.stringify(fixture.input).slice(0, 60)}`, () => {
         if (fixture.parses) {
           expect(() => parseText(fixture.input), fixture.id).not.toThrow();
@@ -55,7 +66,7 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   });
 
   describe("L1 text round-trip", () => {
-    for (const fixture of fixtures.filter((f) => f.roundTrip)) {
+    for (const fixture of fixtures.filter((f) => f.roundTrip && typeof f.input === "string")) {
       it(fixture.id, () => {
         expect(parseText(fixture.input).toText()).toBe(fixture.input);
       });
@@ -63,11 +74,52 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   });
 
   describe("L0 emission + schema validation", () => {
-    for (const fixture of fixtures.filter((f) => f.parses)) {
+    for (const fixture of fixtures.filter((f) => f.parses && typeof f.input === "string")) {
       it(fixture.id, () => {
-        const wire = parseText(fixture.input).toModelJSON();
+        const wire = parseText(fixturesInput(fixture)).toModelJSON();
         const result = validate(wire);
         expect(result, `${fixture.id}: ${result}`).toBe(true);
+      });
+    }
+  });
+
+  // Structure interchange (TODO.v2 09): distinct keys, opt-in levels.
+  describe("SMILES ingestion", () => {
+    for (const fixture of fixtures.filter((f) => typeof f.smiles === "string")) {
+      it(fixture.id, () => {
+        if (fixture.parses) {
+          expect(() => parseSmiles(fixture.smiles as string), fixture.id).not.toThrow();
+          if (fixture.smilesRoundTrip) {
+            expect(
+              parseSmiles(fixture.smiles as string).toSmiles(),
+              fixture.id,
+            ).toBe(fixture.smiles);
+          }
+        } else {
+          expect(() => parseSmiles(fixture.smiles as string), fixture.id).toThrow(ParseError);
+        }
+      });
+    }
+  });
+
+  describe("molfile ingestion", () => {
+    for (const fixture of fixtures.filter((f) => typeof f.molfile === "string")) {
+      it(fixture.id, () => {
+        if (fixture.parses) {
+          const molecule = parseMolfile(fixture.molfile as string);
+          const { atoms, edges } = buildGraph(molecule);
+          expect(atoms.length, fixture.id).toBe(fixture.atoms);
+          expect(edges.length, fixture.id).toBe(fixture.bonds);
+          if (fixture.molfileRoundTrip) {
+            const shape = edges.map((e) => [e.from, e.to, e.kind]).sort();
+            const reparsed = parseMolfile(writeMolfile(molecule));
+            const again = buildGraph(reparsed);
+            expect(again.atoms.length, fixture.id).toBe(atoms.length);
+            expect(again.edges.map((e) => [e.from, e.to, e.kind]).sort(), fixture.id).toEqual(shape);
+          }
+        } else {
+          expect(() => parseMolfile(fixture.molfile as string), fixture.id).toThrow(ParseError);
+        }
       });
     }
   });

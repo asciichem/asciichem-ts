@@ -71,6 +71,8 @@ class ToWireVisitor implements Visitor<WireNode> {
     if (node.lonePairs !== undefined) wire.lonePairs = node.lonePairs;
     if (node.radicalElectrons !== undefined) wire.radicalElectrons = node.radicalElectrons;
     if (node.ringClosures !== undefined) wire.ringClosures = digitsOrNil(node.ringClosures);
+    if (node.aromatic !== undefined) wire.aromatic = node.aromatic;
+    if (node.hydrogens !== undefined) wire.hydrogens = node.hydrogens;
     return wire;
   }
 
