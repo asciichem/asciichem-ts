@@ -23,7 +23,7 @@ npm install asciichem
 ## Usage
 
 ```ts
-import { parse } from "asciichem";
+import { parse, parseSmiles, parseMolfile } from "asciichem";
 
 const formula = parse("2H_2 + O_2 ->[heat] 2H_2O");
 
@@ -33,6 +33,12 @@ formula.toModelJSON();   // asciichem-model v1 wire JSON
 
 // Structures authored with bonds render as 2D skeletal diagrams:
 parse("C1-C-C-C-C-C1").toStructuralSvg(); // cyclohexane hexagon
+
+// Ingest external structures (TODO.v2 09) — same model, same renderers:
+const aspirin = parseSmiles("CC(=O)OC1=CC=CC=C1C(=O)O");
+aspirin.toStructuralSvg();
+aspirin.toSmiles();      // deterministic writer; round-trips exactly
+parseMolfile(molfileV2000Text);           // coordinates preserved
 ```
 
 Rebuild the model from wire JSON with `fromModelJSON` (the lossless
@@ -50,6 +56,8 @@ schemas:
 | parse/reject | 100% — every corpus case parses or raises `ParseError` exactly as marked |
 | L0 | 100% — emission validates against the v1 JSON Schemas |
 | L1 | 100% — `parse(s).toText() === s` for every `roundTrip` case |
+| SMILES | 100% — ingestion + deterministic emission, every `structure/smiles/*` fixture (asciichem-tests v0.3.0) |
+| molfile | 100% — V2000 ingestion + emission, every `structure/molfile/*` fixture |
 | L2+ | MathML, CML round-trip, linter diagnostics: not yet claimed |
 
 The parser is a rule-by-rule peggy port of the reference grammar
@@ -62,16 +70,17 @@ A molecular formula is **not** a structure: `C_2H_6O` is ethanol or
 dimethyl ether. The chemistry world never infers connectivity from a
 formula — structural diagrams are drawn from:
 
-1. **Authored bonds and rings** (what this package renders today):
-   AsciiChem syntax carries connectivity inline — `CH_3-CH_2-OH`,
-   ring closures `C1-C-C-C-C-C1`, wedges `>-`, stereo markers.
+1. **Authored bonds and rings, or ingested SMILES/molfile** (what
+   this package renders today): AsciiChem syntax carries connectivity
+   inline — `CH_3-CH_2-OH`, ring closures `C1-C-C-C-C-C1`, wedges
+   `>-`, stereo markers — and `parseSmiles`/`parseMolfile` bring
+   database structures into the same model.
 2. **Connection tables / line notations from databases** — molfile and
    SDF (PubChem, CAS), SMILES (PubChem canonical/isomeric, CAS),
    InChI (a derived identity encoding, usable for validation and
    citation more than for drawing). AsciiChem molecules can attach
-   these via `@smiles("CCO")` / `@inchi(...)` annotations; ingesting
-   them into the semantic model is the interchange track
-   (TODO.v2 09).
+   these via `@smiles("CCO")` / `@inchi(...)` annotations and ingest
+   them with `parseSmiles`/`parseMolfile` (TODO.v2 09, landed).
 3. **Resolution services** — validate identifiers and fetch structures
    from PubChem / CAS Common Chemistry / OPSIN (TODO.v2 07, 39, 40).
 

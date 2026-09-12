@@ -1,7 +1,6 @@
 // Canonical wire types for the asciichem-model v1 JSON form.
-// Vendored from asciichem-model schemas/v1/types (tag v0.3.4) —
+// Vendored from asciichem-model schemas/v1/types (tag v0.4.0) —
 // regenerate with scripts/update-model-types.sh, never edit by hand.
-
 export interface Atom {
   readonly type: "atom";
   readonly element: string;
@@ -12,11 +11,13 @@ export interface Atom {
   readonly lonePairs?: number;
   readonly radicalElectrons?: number;
   readonly ringClosures?: string;
+  readonly aromatic?: boolean;
+  readonly hydrogens?: number;
 }
 
 export interface Bond {
   readonly type: "bond";
-  readonly kind?: "single" | "double" | "triple" | "quadruple" | "wedge" | "hash" | "dative" | "wavy";
+  readonly kind?: "single" | "double" | "triple" | "quadruple" | "wedge" | "hash" | "dative" | "wavy" | "aromatic";
 }
 
 export interface Calculation {
@@ -81,6 +82,27 @@ export interface Identifier {
   readonly convention: "cas" | "inchi" | "inchikey" | "smiles" | "canonical-smiles" | "iupac-name" | "pubchem-cid" | "chebi";
   readonly dictRef?: string;
 }
+
+export type Node =
+  | Atom
+  | Bond
+  | Calculation
+  | Crystal
+  | ElectronConfiguration
+  | EmbeddedMath
+  | Formula
+  | Group
+  | Identifier
+  | Mechanism
+  | Molecule
+  | Name
+  | Provenance
+  | ReactionCascade
+  | Reaction
+  | Spectrum
+  | SubstanceRecord
+  | Text
+  | ZMatrix;
 
 export interface Mechanism {
   readonly type: "mechanism";
@@ -177,6 +199,7 @@ export interface ZMatrix {
     dihedral?: string;
   }[];
 }
+
 
 // Union of every node type in the v1 model.
 export type WireNode =

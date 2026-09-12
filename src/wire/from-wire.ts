@@ -66,6 +66,8 @@ function fromNode(wire: AnyWire): Node {
         optionalNumber(wire.lonePairs),
         optionalNumber(wire.radicalElectrons),
         optionalString(wire.ringClosures),
+        wire.aromatic === true,
+        optionalNumber(wire.hydrogens),
       );
     case "bond":
       return new Bond((wire.kind as BondKind) ?? "single");

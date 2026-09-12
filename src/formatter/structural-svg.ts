@@ -157,6 +157,14 @@ function bondElement(from: Point, to: Point, bond: Bond): string {
     case "single":
       lines.push(line(a, b));
       break;
+    case "aromatic": {
+      const el = line(a, b).replace(
+        'stroke-width="1.6"',
+        'stroke-width="1.6" stroke-dasharray="4 2.5"',
+      );
+      lines.push(el);
+      break;
+    }
     case "double":
       lines.push(offsetLine(a, b, nx, ny, -2.6), offsetLine(a, b, nx, ny, 2.6));
       break;
