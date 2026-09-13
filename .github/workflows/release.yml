@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (must match package.json)"
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # npm trusted publishing (OIDC): register this publisher on
+    # npmjs.com — package "asciichem", repository asciichem/asciichem-ts,
+    # workflow release.yml, no environment.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Verify version matches input
+        run: |
+          actual=$(node -p "require('./package.json').version")
+          if [ "$actual" != "${{ inputs.version }}" ]; then
+            echo "Version mismatch: input=${{ inputs.version }}, package.json=$actual"
+            exit 1
+          fi
+          echo "Releasing $actual"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      # With the trusted publisher registered on npmjs.com, npm
+      # authenticates via the job's OIDC token -- no stored secrets.
+      - name: Publish (trusted publishing)
+        run: npm publish --provenance --access public
