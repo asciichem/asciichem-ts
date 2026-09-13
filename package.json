@@ -30,7 +30,8 @@
     "test:watch": "vitest",
     "typecheck": "npm run grammar && tsc --noEmit",
     "prepublishOnly": "npm run build && npm test",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "bench": "npm run build >/dev/null && node bench/engines.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
