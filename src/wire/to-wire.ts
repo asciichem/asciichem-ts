@@ -98,6 +98,7 @@ class ToWireVisitor implements Visitor<WireNode> {
       nodes: node.nodes.map((n) => n.toModelJSON()) as WireMolecule["nodes"],
     };
     if (node.coefficient !== undefined) wire.coefficient = digitsOrNil(node.coefficient);
+    if (node.stereo !== undefined) wire.stereo = node.stereo;
     if (node.identifiers.length > 0) {
       wire.identifiers = node.identifiers.map((i) => {
         const w: Writable<WireIdentifier> = {

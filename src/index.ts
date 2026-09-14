@@ -16,6 +16,7 @@ import { Formula, Molecule } from "./model.js";
 // Formatter registration happens as a side effect of these imports.
 import "./formatter/text.js";
 import "./formatter/svg.js";
+import "./formatter/mathml.js";
 import "./wire/to-wire.js";
 
 registerRenderer<string>("smiles", (node) => {
@@ -35,5 +36,13 @@ export type * as Wire from "./wire/types.js";
 export { TextFormatter } from "./formatter/text.js";
 export { SvgFormatter } from "./formatter/svg.js";
 export { StructuralSvgFormatter } from "./formatter/structural-svg.js";
+export { MathmlFormatter, renderMathml } from "./formatter/mathml.js";
 export { parseSmiles, writeSmiles, parseMolfile, writeMolfile };
 export { parseText };
+export {
+  EngineMissingError as InchiEngineMissingError,
+  identityFor as inchiIdentityFor,
+  setInchiEngine,
+  type InchiEngine,
+  type InchiIdentity,
+} from "./inchi.js";

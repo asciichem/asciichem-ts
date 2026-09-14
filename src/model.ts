@@ -17,23 +17,23 @@ export type BondKind =
 export type BracketKind = "paren" | "square" | "brace";
 export type StereoKind = "R" | "S" | "E" | "Z" | "alpha" | "beta";
 
-export const BOND_KINDS: Record<BondKind, { ascii: string }> = {
-  single: { ascii: "-" },
-  double: { ascii: "=" },
-  triple: { ascii: "#" },
-  quadruple: { ascii: "##" },
-  wedge: { ascii: ">-" },
-  hash: { ascii: "-<" },
-  dative: { ascii: "~>" },
-  wavy: { ascii: "~~" },
-  aromatic: { ascii: ":" },
+export const BOND_KINDS: Record<BondKind, { ascii: string; entity: string }> = {
+  single: { ascii: "-", entity: "-" },
+  double: { ascii: "=", entity: "=" },
+  triple: { ascii: "#", entity: "≡" },
+  quadruple: { ascii: "##", entity: "≣" },
+  wedge: { ascii: ">-", entity: "↑" },
+  hash: { ascii: "-<", entity: "↓" },
+  dative: { ascii: "~>", entity: "→" },
+  wavy: { ascii: "~~", entity: "∼" },
+  aromatic: { ascii: ":", entity: ":" },
 };
 
-export const ARROW_KINDS: Record<ArrowKind, { ascii: string; wire: ArrowKind }> = {
-  forward: { ascii: "->", wire: "forward" },
-  reverse: { ascii: "<-", wire: "reverse" },
-  equilibrium: { ascii: "<=>", wire: "equilibrium" },
-  resonance: { ascii: "<->", wire: "resonance" },
+export const ARROW_KINDS: Record<ArrowKind, { ascii: string; wire: ArrowKind; entity: string }> = {
+  forward: { ascii: "->", wire: "forward", entity: "→" },
+  reverse: { ascii: "<-", wire: "reverse", entity: "←" },
+  equilibrium: { ascii: "<=>", wire: "equilibrium", entity: "⇌" },
+  resonance: { ascii: "<->", wire: "resonance", entity: "↔" },
 };
 
 export const STEREO_TO_LETTER: Record<StereoKind, string> = {
@@ -195,6 +195,9 @@ export class Bond extends Node {
   get ascii(): string {
     return BOND_KINDS[this.kind].ascii;
   }
+  get entity(): string {
+    return BOND_KINDS[this.kind].entity;
+  }
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitBond(this);
   }
@@ -313,6 +316,9 @@ export class Reaction extends Node {
   }
   get arrowAscii(): string {
     return ARROW_KINDS[this.arrow].ascii;
+  }
+  get arrowEntity(): string {
+    return ARROW_KINDS[this.arrow].entity;
   }
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitReaction(this);

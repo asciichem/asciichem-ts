@@ -14,6 +14,8 @@ describe("wire round-trip", () => {
     "C1-C-C-C-C-C1",
     "N_2 + 3H_2 <=>[Fe][500C] 2NH_3",
     "H_2O @cas(\"7732-18-5\") @inchi(\"InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3\")",
+    "(R)-C_2H_5OH",
+    "(alpha)-C_6H_12O_6",
     "\"plain text\"",
   ])("model -> wire -> model preserves text for %s", (input) => {
     const wire = parseText(input).toModelJSON();
