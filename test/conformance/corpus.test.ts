@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { parseText } from "../../src/parser.js";
 import { ParseError } from "../../src/errors.js";
 import { parseSmiles, parseMolfile, writeMolfile } from "../../src/index.js";
+import { renderMathml } from "../../src/formatter/mathml.js";
 import { buildGraph } from "../../src/structure.js";
 import "../../src/index.js";
 import { wireValidator } from "./schemas.js";
@@ -22,6 +23,7 @@ interface Fixture {
   roundTrip?: boolean;
   smilesRoundTrip?: boolean;
   molfileRoundTrip?: boolean;
+  mathml?: string;
   atoms?: number;
   bonds?: number;
   [key: string]: unknown;
@@ -120,6 +122,16 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
         } else {
           expect(() => parseMolfile(fixture.molfile as string), fixture.id).toThrow(ParseError);
         }
+      });
+    }
+  });
+
+  // L2: MathML golden parity — exact-string comparison against the
+  // reference implementation's output (single-contract rule).
+  describe("L2 MathML golden", () => {
+    for (const fixture of fixtures.filter((f) => typeof f.mathml === "string")) {
+      it(fixture.id, () => {
+        expect(renderMathml(parseText(fixture.input as string)), fixture.id).toBe(fixture.mathml);
       });
     }
   });
