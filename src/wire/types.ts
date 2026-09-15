@@ -1,5 +1,5 @@
 // Canonical wire types for the asciichem-model v1 JSON form.
-// Vendored from asciichem-model schemas/v1/types (local main; next tag pending) —
+// Vendored from asciichem-model schemas/v1/types (tag v0.5.0) —
 // regenerate with scripts/update-model-types.sh, never edit by hand.
 export interface Atom {
   readonly type: "atom";
