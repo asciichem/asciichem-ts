@@ -34,6 +34,10 @@ jobs:
         with:
           node-version: "22"
           registry-url: https://registry.npmjs.org
+      # Trusted publishing (OIDC as the publish credential) needs
+      # npm >= 11.5; Node 22 bundles npm 10, where --provenance signs
+      # via OIDC but the PUT goes out anonymously (registry 404).
+      - run: npm install -g npm@latest
       - name: Clone conformance corpus (asciichem-tests)
         run: git clone --depth 1 https://github.com/asciichem/asciichem-tests.git ../asciichem-tests
       - name: Clone model schemas (asciichem-model)
