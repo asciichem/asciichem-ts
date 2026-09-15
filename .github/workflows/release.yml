@@ -34,6 +34,10 @@ jobs:
         with:
           node-version: "22"
           registry-url: https://registry.npmjs.org
+      - name: Clone conformance corpus (asciichem-tests)
+        run: git clone --depth 1 https://github.com/asciichem/asciichem-tests.git ../asciichem-tests
+      - name: Clone model schemas (asciichem-model)
+        run: git clone --depth 1 https://github.com/asciichem/asciichem-model.git ../asciichem-model
       - run: npm ci
       - run: npm test
       - run: npm run build
