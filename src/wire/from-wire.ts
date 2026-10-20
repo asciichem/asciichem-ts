@@ -68,9 +68,17 @@ function fromNode(wire: AnyWire): Node {
         optionalString(wire.ringClosures),
         wire.aromatic === true,
         optionalNumber(wire.hydrogens),
+        undefined, // x2
+        undefined, // y2
+        undefined, // z2
+        undefined, // atomParity (the wire carries derived R/S, not stored parity)
+        optionalString(wire.chirality),
       );
     case "bond":
-      return new Bond((wire.kind as BondKind) ?? "single");
+      return new Bond(
+        (wire.kind as BondKind) ?? "single",
+        (wire.direction as "up" | "down" | undefined) ?? undefined,
+      );
     case "group":
       return new Group(
         (wire.nodes as AnyWire[]).map(fromNode),

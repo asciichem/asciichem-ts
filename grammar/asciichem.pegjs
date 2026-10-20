@@ -155,7 +155,9 @@ HSubscript
   / $[0-9]+
 
 BondToken
-  = "##"  { return { kind: "bond", bondKind: "quadruple" }; }
+  = "/"   { return { kind: "bond", bondKind: "single", direction: "up" }; }
+  / "\\"  { return { kind: "bond", bondKind: "single", direction: "down" }; }
+  / "##"  { return { kind: "bond", bondKind: "quadruple" }; }
   / ">-" { return { kind: "bond", bondKind: "wedge" }; }
   / "-<" { return { kind: "bond", bondKind: "hash" }; }
   / "~>" { return { kind: "bond", bondKind: "dative" }; }
@@ -193,17 +195,22 @@ PlainAtom
 
 AtomAnnotations
   = coordinate:CoordinateAnnotation? parity:ParityAnnotation?
+    chirality:ChiralityAnnotation?
     multiplicity:MultiplicityAnnotation? title:AtomTitleAnnotation?
     fractional:FractionalAnnotation? {
       return {
         x2: coordinate?.x2, y2: coordinate?.y2, z2: coordinate?.z2,
-        atomParity: parity, spinMultiplicity: multiplicity,
+        atomParity: parity, chirality: chirality,
+        spinMultiplicity: multiplicity,
         atomTitle: title,
         xFract: fractional?.x, yFract: fractional?.y, zFract: fractional?.z,
       };
     }
 
 ParityAnnotation      = "@" parity:$[RS] { return parity; }
+// Tetrahedral parity classes (SMILES @/@@ semantics, spelled
+// explicitly beside the CIP @R/@S label — the Ruby DSL contract).
+ChiralityAnnotation   = "@" c:("TH1" / "TH2") { return c; }
 MultiplicityAnnotation = "@m(" digits:$[0-9]+ ")" { return digits; }
 AtomTitleAnnotation   = "@t(\"" title:[^"]* "\")" { return title.join(""); }
 

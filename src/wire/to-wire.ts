@@ -73,12 +73,15 @@ class ToWireVisitor implements Visitor<WireNode> {
     if (node.ringClosures !== undefined) wire.ringClosures = digitsOrNil(node.ringClosures);
     if (node.aromatic !== undefined) wire.aromatic = node.aromatic;
     if (node.hydrogens !== undefined) wire.hydrogens = node.hydrogens;
+    if (node.chirality !== undefined) wire.chirality = node.chirality as "TH1" | "TH2";
     return wire;
   }
 
   visitBond(node: Bond): WireNode {
-    const wire: Writable<WireBond> = { type: "bond" };
-    if (node.kind !== "single") wire.kind = node.kind;
+    // kind is always emitted: the reference implementation does, and
+    // the differential gate compares wire forms byte-wise.
+    const wire: Writable<WireBond> = { type: "bond", kind: node.kind };
+    if (node.direction !== undefined) wire.direction = node.direction;
     return wire;
   }
 

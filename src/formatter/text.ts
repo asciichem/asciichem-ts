@@ -70,6 +70,7 @@ export class TextFormatter implements Visitor<string> {
       parts.push(`${coord})`);
     }
     if (atom.atomParity !== undefined) parts.push(`@${atom.atomParity}`);
+    if (atom.chirality !== undefined) parts.push(`@${atom.chirality}`);
     if (atom.spinMultiplicity !== undefined) parts.push(`@m(${atom.spinMultiplicity})`);
     if (atom.atomTitle !== undefined) parts.push(`@t("${atom.atomTitle}")`);
     if (atom.xFract !== undefined && atom.yFract !== undefined && atom.zFract !== undefined) {
@@ -87,6 +88,10 @@ export class TextFormatter implements Visitor<string> {
   }
 
   visitBond(bond: Bond): string {
+    // Directional single bonds spell the direction instead of the
+    // plain dash (text re-parses to the same model).
+    if (bond.direction === "up") return "/";
+    if (bond.direction === "down") return "\\";
     return bond.ascii;
   }
 
