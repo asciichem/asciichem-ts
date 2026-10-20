@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseSmiles } from "../../src/smiles.js";
 import { parseMolfile, writeMolfile } from "../../src/molfile.js";
 import { buildGraph } from "../../src/structure.js";
-import { Atom, Molecule, ParseError } from "../../src/index.js";
+import { Atom, Formula, Molecule, ParseError } from "../../src/index.js";
 import { parseText } from "../../src/parser.js";
 
 describe("parseSmiles", () => {
@@ -57,6 +57,10 @@ describe("parseSmiles", () => {
 });
 
 describe("writeSmiles", () => {
+  // Canonicalization maps many models to one spelling (Kekulé →
+  // aromatic), so model equality is not the invariant — the
+  // canonical form must be a fixed point and must keep every atom
+  // and bond.
   it("is stable and structure-preserving", () => {
     for (const smiles of [
       "CC(=O)OC1=CC=CC=C1C(=O)O",
@@ -70,7 +74,30 @@ describe("writeSmiles", () => {
     ]) {
       const once = parseSmiles(smiles).toSmiles();
       expect(parseSmiles(once).toSmiles()).toBe(once);
-      expect(parseSmiles(once).toModelJSON()).toEqual(parseSmiles(smiles).toModelJSON());
+      const before = writeMolfile((parseSmiles(smiles) as Formula).nodes[0] as Molecule);
+      const after = writeMolfile((parseSmiles(once) as Formula).nodes[0] as Molecule);
+      expect(after.split("\n")[3].slice(0, 6)).toBe(before.split("\n")[3].slice(0, 6));
+    }
+  });
+
+  // Item 2: the canonicalizer consumes the perception pass.
+  it("canonicalizes perceived aromatic rings", () => {
+    const canonical: Record<string, string> = {
+      "C1=CC=CC=C1": "c1ccccc1",
+      "CC(=O)OC1=CC=CC=C1C(=O)O": "CC(=O)Oc1ccccc1C(=O)O",
+      "ClC1=CC=CC=C1": "Clc1ccccc1",
+      "C1=CC=NC=C1": "c1ccncc1",
+      "C1=CC=C2C=CC=CC2=C1": "c1ccc2ccccc2c1",
+    };
+    for (const [kekule, expected] of Object.entries(canonical)) {
+      expect(parseSmiles(kekule).toSmiles()).toBe(expected);
+      expect(parseSmiles(expected).toSmiles()).toBe(expected);
+    }
+  });
+
+  it("keeps quinones Kekulé", () => {
+    for (const smiles of ["O=C1C=CC=CC1", "O=C1C=CC(=O)C=C1"]) {
+      expect(parseSmiles(smiles).toSmiles()).toBe(smiles);
     }
   });
 
