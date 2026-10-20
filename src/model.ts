@@ -522,8 +522,19 @@ export class ZMatrix extends Node {
   }
 }
 
+export class MechanismFlow {
+  constructor(
+    readonly source: string,
+    readonly target: string,
+  ) {}
+}
+
 export class MechanismStep {
-  constructor(readonly label: string, readonly reaction: string) {}
+  constructor(
+    readonly label: string,
+    readonly reaction: string,
+    readonly flows: MechanismFlow[] = [],
+  ) {}
 }
 
 export class Mechanism extends Node {

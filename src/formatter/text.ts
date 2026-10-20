@@ -11,6 +11,7 @@ import {
   Formula,
   Group,
   Mechanism,
+  MechanismStep,
   Molecule,
   Node,
   Reaction,
@@ -203,7 +204,7 @@ export class TextFormatter implements Visitor<string> {
   visitMechanism(mech: Mechanism): string {
     const parts = ["mechanism"];
     if (mech.steps.length > 0 || mech.spectators.length > 0) {
-      const lines = mech.steps.map((s) => `${s.label}: ${s.reaction}`);
+      const lines = mech.steps.map((s) => `${s.label}: ${mechanismStepText(s)}`);
       for (const sp of mech.spectators) lines.push(`spectator: ${sp}`);
       parts.push(`{\n  ${lines.join("\n  ")}\n}`);
     }
@@ -234,3 +235,9 @@ function formatCoord(value: number): string {
 }
 
 registerRenderer<string>("text", (node) => node.accept(new TextFormatter()));
+
+function mechanismStepText(step: MechanismStep): string {
+  if (step.flows.length === 0) return step.reaction;
+  const arrows = step.flows.map((f) => `${f.source} > ${f.target}`).join("; ");
+  return `${step.reaction} | flow: ${arrows}`;
+}
