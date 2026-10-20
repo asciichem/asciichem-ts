@@ -146,6 +146,7 @@ export class Atom extends Node {
     readonly y2?: number,
     readonly z2?: number,
     readonly atomParity?: string,
+    readonly chirality?: string,
     readonly spinMultiplicity?: string,
     readonly atomTitle?: string,
     readonly xFract?: number,
@@ -174,6 +175,7 @@ export class Atom extends Node {
       "y2" in changes ? changes.y2 : this.y2,
       "z2" in changes ? changes.z2 : this.z2,
       "atomParity" in changes ? changes.atomParity : this.atomParity,
+      "chirality" in changes ? changes.chirality : this.chirality,
       "spinMultiplicity" in changes ? changes.spinMultiplicity : this.spinMultiplicity,
       "atomTitle" in changes ? changes.atomTitle : this.atomTitle,
       "xFract" in changes ? changes.xFract : this.xFract,
@@ -189,7 +191,12 @@ export class Atom extends Node {
 
 export class Bond extends Node {
   readonly type = "bond";
-  constructor(readonly kind: BondKind) {
+  constructor(
+    readonly kind: BondKind,
+    // SMILES directional single bond (/ up, \ down) flanking a
+    // stereogenic double bond — orthogonal to the kind.
+    readonly direction?: "up" | "down",
+  ) {
     super();
   }
   get ascii(): string {

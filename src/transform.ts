@@ -54,6 +54,7 @@ interface AtomCapture {
   y2?: string;
   z2?: string;
   atomParity?: string;
+  chirality?: string;
   spinMultiplicity?: string;
   atomTitle?: string;
   xFract?: string;
@@ -63,6 +64,7 @@ interface AtomCapture {
 interface BondCapture {
   kind: "bond";
   bondKind: BondKind;
+  direction?: "up" | "down";
 }
 interface GroupCapture {
   kind: "group";
@@ -120,7 +122,10 @@ function buildNode(capture: unknown): Node {
     case "atom":
       return AtomBuilder.build(c as never as AtomCapture);
     case "bond":
-      return new Bond((c as never as BondCapture).bondKind);
+      return new Bond(
+        (c as never as BondCapture).bondKind,
+        (c as never as BondCapture).direction as "up" | "down" | undefined,
+      );
     case "group":
       return buildGroup(c as never as GroupCapture);
     case "molecule":
@@ -179,6 +184,7 @@ class AtomBuilder {
       floatOrNil(c.y2),
       floatOrNil(c.z2),
       nilToUndefined(c.atomParity),
+      nilToUndefined(c.chirality),
       nilToUndefined(c.spinMultiplicity),
       nilToUndefined(c.atomTitle),
       floatOrNil(c.xFract),

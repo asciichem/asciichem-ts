@@ -16,6 +16,7 @@ export interface Edge {
   from: number;
   to: number;
   kind: Bond["kind"];
+  direction?: "up" | "down";
 }
 
 export function buildGraph(molecule: Molecule): { atoms: Atom[]; edges: Edge[] } {
@@ -30,7 +31,7 @@ export function buildGraph(molecule: Molecule): { atoms: Atom[]; edges: Edge[] }
         const index = atoms.length;
         atoms.push(node);
         if (pending && last !== undefined) {
-          edges.push({ from: last, to: index, kind: pending.kind });
+          edges.push({ from: last, to: index, kind: pending.kind, direction: pending.direction });
         }
         last = index;
         pending = undefined;
@@ -78,13 +79,13 @@ const MAX_DIGIT = 9;
 export function linearize(atoms: Atom[], edges: Edge[]): Node[] {
   const closeAt: number[] = Array(MAX_DIGIT).fill(-1);
   const digitsFor: string[] = atoms.map(() => "");
-  const tokenBefore: (Bond["kind"] | undefined)[] = atoms.map(() => undefined);
+  const tokenBefore: (Edge | undefined)[] = atoms.map(() => undefined);
 
   for (const edge of edges) {
     const first = Math.min(edge.from, edge.to);
     const last = Math.max(edge.from, edge.to);
     if (last - first === 1) {
-      tokenBefore[last] = edge.kind;
+      tokenBefore[last] = edge;
     } else {
       const digitIndex = closeAt.findIndex((closed) => closed <= first);
       if (digitIndex === -1) {
@@ -101,8 +102,8 @@ export function linearize(atoms: Atom[], edges: Edge[]): Node[] {
 
   const nodes: Node[] = [];
   atoms.forEach((atom, index) => {
-    const kind = tokenBefore[index];
-    if (index > 0 && kind) nodes.push(new Bond(kind));
+    const edge = tokenBefore[index];
+    if (index > 0 && edge) nodes.push(new Bond(edge.kind, edge.direction));
     atom.ringClosures = digitsFor[index] || undefined;
     nodes.push(atom);
   });

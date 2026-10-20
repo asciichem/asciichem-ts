@@ -35,14 +35,24 @@ describe("parseSmiles", () => {
     expect(parseSmiles("O.CCO").nodes.length).toBe(2);
   });
 
+  // Stereo moved from the v1 rejections to supported features
+  // (corpus 0.5.0): @/@@ parse into Atom.chirality, / \ into
+  // Bond.direction.
   it.each([
     "C1CCC",
-    "[C@H](C)C",
-    "C/C=C/C",
     "C=1CCCCC=1",
     "CC!X",
   ])("rejects %j with ParseError", (smiles) => {
     expect(() => parseSmiles(smiles)).toThrow(ParseError);
+  });
+
+  it.each([
+    ["[C@H](C)C", "@"],
+    ["[C@@H](C)C", "@"],
+    ["C/C=C/C", "/"],
+    ["F/C=C\\F", "\\"],
+  ])("parses stereo %j", (smiles, marker) => {
+    expect(parseSmiles(smiles).toSmiles()).toContain(marker);
   });
 });
 

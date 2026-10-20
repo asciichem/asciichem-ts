@@ -21,6 +21,8 @@ class SmilesParser {
   private openRings = new Map<string, number>();
   private parent: number | undefined;
   private pendingKind: BondKind | undefined;
+  private pendingDirection: "up" | "down" | undefined;
+  private edgeDirections = new Map<string, "up" | "down">();
 
   constructor(private readonly source: string) {}
 
@@ -52,7 +54,10 @@ class SmilesParser {
     const edges: Edge[] = [];
     this.adjacency.forEach((neighbors, index) => {
       neighbors.forEach((kind, to) => {
-        if (to > index) edges.push({ from: index, to, kind });
+        if (to > index) {
+          const direction = this.edgeDirections.get([index, to].sort().join("-"));
+          edges.push({ from: index, to, kind, direction });
+        }
       });
     });
     return new Molecule(linearize(this.atoms, edges));
@@ -62,39 +67,59 @@ class SmilesParser {
     this.atomToken();
     while (!this.eoc()) {
       if (this.peek() === "(") {
-        this.branch(undefined);
+        this.branch(undefined, undefined);
       } else if (this.bondStart()) {
-        const kind = this.bondToken();
+        const { kind, direction } = this.bondToken();
         if (this.peek() === "(") {
-          this.branch(kind);
+          this.branch(kind, direction);
         } else if (this.digitStart()) {
-          this.ringbond(kind);
+          this.ringbond(kind, direction);
         } else {
           this.pendingKind = kind;
+          this.pendingDirection = direction;
           this.atomToken();
         }
       } else if (this.digitStart()) {
-        this.ringbond(undefined);
+        this.ringbond(undefined, undefined);
       } else {
         this.pendingKind = undefined;
+        this.pendingDirection = undefined;
         this.atomToken();
       }
     }
   }
 
-  private branch(kind: BondKind | undefined): void {
+  private branch(
+    kind: BondKind | undefined,
+    direction: "up" | "down" | undefined,
+  ): void {
     this.expect("(");
-    if (kind === undefined && this.bondStart()) kind = this.bondToken();
+    if (kind === undefined && this.bondStart()) {
+      const t = this.bondToken();
+      kind = t.kind;
+      direction = t.direction;
+    }
     const savedParent = this.parent;
     const savedPending = this.pendingKind;
+    const savedDirection = this.pendingDirection;
     this.pendingKind = kind;
+    this.pendingDirection = direction;
     this.chain();
     this.expect(")");
     this.parent = savedParent;
     this.pendingKind = savedPending;
+    this.pendingDirection = savedDirection;
   }
 
-  private ringbond(kind: BondKind | undefined): void {
+  private ringbond(
+    kind: BondKind | undefined,
+    direction: "up" | "down" | undefined,
+  ): void {
+    if (direction) {
+      throw new ParseError(
+        "directional ring closures are not representable in the model's ring-closure form",
+      );
+    }
     const digit = this.ringDigit();
     const opener = this.openRings.get(digit);
     if (opener !== undefined) {
@@ -115,9 +140,18 @@ class SmilesParser {
     const index = this.atoms.length;
     this.atoms.push(atom);
     this.adjacency.push(new Map());
-    if (this.parent !== undefined) this.addEdge(this.parent, index, this.pendingKind);
+    if (this.parent !== undefined) {
+      this.addEdge(this.parent, index, this.pendingKind);
+      if (this.pendingDirection !== undefined) {
+        this.edgeDirections.set(
+          [this.parent, index].sort((a, b) => a - b).join("-"),
+          this.pendingDirection,
+        );
+      }
+    }
     this.parent = index;
     this.pendingKind = undefined;
+    this.pendingDirection = undefined;
   }
 
   private addEdge(from: number, to: number, explicit: BondKind | undefined): void {
@@ -157,7 +191,7 @@ class SmilesParser {
     this.expect("[");
     const isotope = this.digits();
     const symbol = this.bracketSymbol();
-    this.rejectChirality();
+    const chirality = this.readChirality();
     const hydrogens = this.hcount();
     const charge = this.bracketCharge();
     this.skipClass();
@@ -174,6 +208,11 @@ class SmilesParser {
       undefined,
       /^[a-z]/.test(symbol) || undefined,
       hydrogens,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      chirality,
     );
   }
 
@@ -199,10 +238,16 @@ class SmilesParser {
     );
   }
 
-  private rejectChirality(): void {
-    if (this.peek() !== "@") return;
-    const token = this.source.slice(this.pos, this.pos + 2) === "@@" ? "'@@'" : "'@'";
-    throw new ParseError(`chirality ${token} is not supported in the v1 subset`);
+  // `@` (TH1) / `@@` (TH2): SMILES ordered-neighbour tetrahedral
+  // parity, stored verbatim on the atom.
+  private readChirality(): string | undefined {
+    if (this.peek() !== "@") return undefined;
+    if (this.source.slice(this.pos, this.pos + 2) === "@@") {
+      this.pos += 2;
+      return "TH2";
+    }
+    this.pos += 1;
+    return "TH1";
   }
 
   private hcount(): number | undefined {
@@ -234,7 +279,7 @@ class SmilesParser {
     this.digits();
   }
 
-  private bondToken(): BondKind {
+  private bondToken(): { kind: BondKind; direction?: "up" | "down" } {
     const ch = this.peek();
     const kinds: Record<string, BondKind> = {
       "-": "single",
@@ -243,19 +288,19 @@ class SmilesParser {
       $: "quadruple",
       ":": "aromatic",
     };
+    if (ch === "/" || ch === "\\") {
+      this.pos += 1;
+      // Directional single bonds (SMILES E/Z stereo).
+      return { kind: "single", direction: ch === "/" ? "up" : "down" } as const;
+    }
     const kind = ch === undefined ? undefined : kinds[ch];
     if (!kind) {
-      if (ch === "/" || ch === "\\") {
-        throw new ParseError(
-          `bond direction ${JSON.stringify(ch)} (E/Z stereo) is not supported in the v1 subset`,
-        );
-      }
       throw new ParseError(
         `expected a bond or atom at position ${this.pos} in ${JSON.stringify(this.source)}`,
       );
     }
     this.pos += 1;
-    return kind;
+    return { kind } as const;
   }
 
   private ringDigit(): string {
@@ -348,12 +393,24 @@ function writeMolecule(molecule: Molecule): string {
   }
 
   const adjacency: Map<number, BondKind>[] = atoms.map(() => new Map());
+  const directions = new Map<string, "up" | "down">();
   for (const edge of edges) {
     adjacency[edge.from].set(edge.to, edge.kind);
     adjacency[edge.to].set(edge.from, edge.kind);
+    if (edge.direction !== undefined) {
+      directions.set(
+        [Math.min(edge.from, edge.to), Math.max(edge.from, edge.to)].join("-"),
+        edge.direction,
+      );
+    }
   }
 
-  const writer = new DeterministicWriter(atoms, adjacency);
+  const modelNeighbours: number[][] = atoms.map(() => []);
+  for (const edge of edges) {
+    modelNeighbours[edge.from].push(edge.to);
+    modelNeighbours[edge.to].push(edge.from);
+  }
+  const writer = new DeterministicWriter(atoms, adjacency, directions, modelNeighbours);
   return writer.write();
 }
 
@@ -366,9 +423,15 @@ class DeterministicWriter {
   private closures: number[][] = [];
   private treeSize: number[] = [];
 
+  private directions = new Map<string, "up" | "down">();
+  private modelNeighbours: number[][] = [];
+  private writtenOrder: number[][] = [];
+
   constructor(
     private readonly atoms: Atom[],
     private readonly adjacency: Map<number, BondKind>[],
+    private readonly edgeDirections: Map<string, "up" | "down"> = new Map(),
+    private readonly modelOrder: number[][] = [],
   ) {}
 
   write(): string {
@@ -376,6 +439,7 @@ class DeterministicWriter {
     this.digits = this.atoms.map(() => []);
     this.buildTree(0, undefined);
     this.computeTreeSize(0);
+    this.computeWrittenOrders();
     const units = this.emit(0, undefined, undefined);
     return units
       .map((unit) => {
@@ -403,6 +467,46 @@ class DeterministicWriter {
         this.buildTree(nb, index);
       }
     }
+  }
+
+  // The order neighbours are WRITTEN in: parent first, then ring
+  // closures, then branches (rank order), then the continuation.
+  // Tetrahedral parity flips with odd permutations of this order
+  // against the model's reference order, so the emitted @/@@ is
+  // corrected per atom (acyclic-correct; ring closures in the
+  // reference order are a later slice).
+  private computeWrittenOrders(): void {
+    this.writtenOrder = this.atoms.map(() => []);
+    const walk = (index: number, parent: number | undefined): void => {
+      const order: number[] = parent !== undefined ? [parent] : [];
+      order.push(...this.closures[index]);
+      const ordered = [...this.treeChildren[index]].sort((a, b) =>
+        this.compareContinuation(index, a, b),
+      );
+      if (ordered.length > 0) order.push(...ordered.slice(1), ordered[0]);
+      this.writtenOrder[index] = order;
+      for (const child of this.treeChildren[index]) walk(child, index);
+    };
+    walk(0, undefined);
+  }
+
+  private chiralityToken(index: number): string {
+    const atom = this.atoms[index];
+    if (!atom.chirality) return "";
+    const ref: (number | "h")[] = [];
+    if (atom.hydrogens) ref.push("h");
+    ref.push(...this.modelOrder[index]);
+    const written: (number | "h")[] = [];
+    if (atom.hydrogens) written.push("h");
+    written.push(...this.writtenOrder[index]);
+    let inversions = 0;
+    written.forEach((item, i) => {
+      for (const later of written.slice(i + 1)) {
+        if (ref.indexOf(item) > ref.indexOf(later)) inversions += 1;
+      }
+    });
+    const token = atom.chirality === "TH2" || inversions % 2 === 1 ? "@@" : "@";
+    return token;
   }
 
   private computeTreeSize(index: number): void {
@@ -473,12 +577,16 @@ class DeterministicWriter {
   }
 
   private bondToken(kind: BondKind, from: number, to: number): string {
+    if (kind === "single") {
+      const direction = this.edgeDirections.get(
+        [Math.min(from, to), Math.max(from, to)].join("-"),
+      );
+      if (direction) return direction === "up" ? "/" : "\\";
+      if (direction) return direction === "up" ? "/" : "\\";
+      return this.aromatic(from) && this.aromatic(to) ? "-" : "";
+    }
     const token = BOND_TOKENS[kind];
     if (!token) throw new ParseError(`${kind} bonds have no SMILES form (v1 subset)`);
-    if (kind !== "single" && kind !== "aromatic") return token;
-    if (kind === "single") {
-      return this.aromatic(from) && this.aromatic(to) ? token : "";
-    }
     return this.aromatic(from) && this.aromatic(to) ? "" : token;
   }
 
@@ -490,6 +598,7 @@ class DeterministicWriter {
       atom.charge !== undefined ||
       atom.isotope !== undefined ||
       atom.hydrogens !== undefined ||
+      atom.chirality !== undefined ||
       (!WRITER_ORGANIC.includes(atom.element) && !lowercase) ||
       (aromatic && !lowercase);
     if (!needsBracket) return lowercase ? atom.element.toLowerCase() : atom.element;
@@ -498,6 +607,7 @@ class DeterministicWriter {
     let token = "[";
     if (atom.isotope !== undefined) token += atom.isotope;
     token += symbol;
+    token += this.chiralityToken(index);
     if (atom.hydrogens !== undefined) {
       token += "H";
       if (atom.hydrogens > 1) token += String(atom.hydrogens);
