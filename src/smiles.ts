@@ -5,7 +5,7 @@
 import { Atom, Bond, BondKind, Formula, Molecule, Node } from "./model.js";
 import { ParseError } from "./errors.js";
 import { buildGraph, linearize, Edge } from "./structure.js";
-import { aromaticRings } from "./perception.js";
+import { aromaticRings, hydrogenValenceSum, implicitHydrogens } from "./perception.js";
 
 const ORGANIC = ["Cl", "Br", "B", "C", "N", "O", "P", "S", "F", "I"];
 const AROMATIC = ["se", "as", "b", "c", "n", "o", "p", "s"];
@@ -377,6 +377,7 @@ const BOND_TOKENS: Partial<Record<BondKind, string>> = {
   aromatic: ":",
 };
 const CONTINUATION_BONDS: BondKind[] = ["single", "aromatic"];
+const HETERO_IMPLICIT_H = ["N", "O", "S", "P", "Se", "As"];
 
 export function writeSmiles(node: Formula | Molecule): string {
   if (node instanceof Formula) {
@@ -417,8 +418,18 @@ function writeMolecule(molecule: Molecule): string {
   // canonicalizes to `c1ccccc1`.
   const perceivedAromatic = new Set<number>();
   const perceivedRingEdges = new Set<string>();
+  const perceivedHydrogens = new Map<number, number | null>();
   for (const ring of aromaticRings(atoms, edges)) {
-    for (const atom of ring) perceivedAromatic.add(atom);
+    for (const atom of ring) {
+      perceivedAromatic.add(atom);
+      // Only rings perceived from Kekule bond orders get an inferred
+      // count; source-aromatic atoms already state hydrogens the way
+      // SMILES does ([nH]), and aromatic 1.5 bond orders do not map
+      // onto heteroatom valences.
+      if (atoms[atom].aromatic !== true) {
+        perceivedHydrogens.set(atom, implicitHydrogens(atoms[atom], hydrogenValenceSum(atom, edges)));
+      }
+    }
     ring.forEach((atom, i) => {
       const other = ring[(i + 1) % ring.length];
       perceivedRingEdges.add([Math.min(atom, other), Math.max(atom, other)].join("-"));
@@ -431,6 +442,7 @@ function writeMolecule(molecule: Molecule): string {
     modelNeighbours,
     perceivedAromatic,
     perceivedRingEdges,
+    perceivedHydrogens,
   );
   return writer.write();
 }
@@ -455,6 +467,7 @@ class DeterministicWriter {
     private readonly modelOrder: number[][] = [],
     private readonly perceivedAromatic: Set<number> = new Set(),
     private readonly perceivedRingEdges: Set<string> = new Set(),
+    private readonly perceivedHydrogens: Map<number, number | null> = new Map(),
   ) {}
 
   write(): string {
@@ -629,11 +642,22 @@ class DeterministicWriter {
     const atom = this.atoms[index];
     const aromatic = this.aromatic(index);
     const lowercase = aromatic && LOWERCASE_AROMATIC.includes(atom.element);
+    const hyd = atom.hydrogens ?? this.perceivedHydrogens.get(index) ?? undefined;
+    // Bare `n`/`o`/`s` imply no hydrogen: a perceived pyrrole N must be
+    // written [nH].
+    const heteroNeedsH =
+      aromatic &&
+      lowercase &&
+      hyd !== undefined &&
+      hyd !== null &&
+      hyd > 0 &&
+      HETERO_IMPLICIT_H.includes(atom.element);
     const needsBracket =
       atom.charge !== undefined ||
       atom.isotope !== undefined ||
       atom.hydrogens !== undefined ||
       atom.chirality !== undefined ||
+      heteroNeedsH ||
       (!WRITER_ORGANIC.includes(atom.element) && !lowercase) ||
       (aromatic && !lowercase);
     if (!needsBracket) return lowercase ? atom.element.toLowerCase() : atom.element;
@@ -643,9 +667,9 @@ class DeterministicWriter {
     if (atom.isotope !== undefined) token += atom.isotope;
     token += symbol;
     token += this.chiralityToken(index);
-    if (atom.hydrogens !== undefined) {
+    if (atom.hydrogens !== undefined || heteroNeedsH) {
       token += "H";
-      if (atom.hydrogens > 1) token += String(atom.hydrogens);
+      if (hyd !== 1) token += String(hyd);
     }
     if (atom.charge !== undefined) token += this.chargeSuffix(atom.charge);
     return token + "]";
