@@ -38,6 +38,7 @@ export { SvgFormatter } from "./formatter/svg.js";
 export { StructuralSvgFormatter } from "./formatter/structural-svg.js";
 export { MathmlFormatter, renderMathml } from "./formatter/mathml.js";
 export { parseSmiles, writeSmiles, parseMolfile, writeMolfile };
+export * as Perception from "./perception.js";
 export { parseText };
 export {
   EngineMissingError as InchiEngineMissingError,
