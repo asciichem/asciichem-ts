@@ -62,6 +62,11 @@ describe("writeSmiles", () => {
       "CC(=O)OC1=CC=CC=C1C(=O)O",
       "c1ccc2ccccc2c1",
       "CC(C)(C)C",
+      // Ring-closure digits stay out of branches (#103): a
+      // closure-bearing child continues the chain.
+      "C1=CCC(C)C(C)C1",
+      "C1CC2CCC1C2",
+      "C1CC(C)CCC1",
     ]) {
       const once = parseSmiles(smiles).toSmiles();
       expect(parseSmiles(once).toSmiles()).toBe(once);
