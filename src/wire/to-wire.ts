@@ -243,10 +243,16 @@ class ToWireVisitor implements Visitor<WireNode> {
   visitMechanism(node: Mechanism): WireNode {
     const wire: Writable<WireMechanism> = { type: "mechanism" };
     if (node.steps.length > 0) {
-      wire.steps = node.steps.map((s) => ({
-        label: s.label,
-        reaction: wireReactionFromString(s.reaction),
-      }));
+      wire.steps = node.steps.map((s) => {
+        const step: Writable<NonNullable<typeof wire.steps>[number]> = {
+          label: s.label,
+          reaction: wireReactionFromString(s.reaction),
+        };
+        if (s.flows.length > 0) {
+          step.flows = s.flows.map((f) => ({ source: f.source, target: f.target }));
+        }
+        return step;
+      });
     }
     if (node.spectators.length > 0) {
       wire.spectators = node.spectators.map((s) => wireMoleculeFromString(s));

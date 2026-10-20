@@ -17,6 +17,7 @@ import {
   Group,
   Identifier,
   Mechanism,
+  MechanismFlow,
   MechanismStep,
   Molecule,
   MoleculeFormula,
@@ -483,11 +484,48 @@ function buildMechanism(c: RawCapture): Mechanism {
       if (key.trim() === "spectator") {
         spectators.push(...value.trim().split(/\s+/));
       } else {
-        steps.push(new MechanismStep(key.trim(), value.trim()));
+        const { reaction, flows } = splitMechanismStep(key.trim(), value.trim());
+        steps.push(new MechanismStep(key.trim(), reaction, flows));
       }
     }
   }
   return new Mechanism(steps, spectators);
+}
+
+// A step value is its reaction, optionally followed by
+// `| flow: SOURCE > TARGET` clauses (semicolon-separated). Unknown
+// clause kinds are rejected, never dropped.
+function splitMechanismStep(
+  label: string,
+  value: string,
+): { reaction: string; flows: MechanismFlow[] } {
+  const [reaction, ...clauses] = value.split("|").map((part) => part.trim());
+  const flows: MechanismFlow[] = [];
+  for (const clause of clauses) {
+    const colon = clause.indexOf(":");
+    const kind = colon >= 0 ? clause.slice(0, colon).trim() : "";
+    if (kind !== "flow" || colon < 0) {
+      throw new ParseError(
+        `mechanism step ${JSON.stringify(label)} has an unknown clause: ${JSON.stringify(clause)} ` +
+          '(supported: "flow: SOURCE > TARGET")',
+      );
+    }
+    for (const arrow of clause.slice(colon + 1).split(";")) {
+      const trimmed = arrow.trim();
+      if (!trimmed) continue;
+      const gt = trimmed.indexOf(">");
+      const source = gt >= 0 ? trimmed.slice(0, gt).trim() : "";
+      const target = gt >= 0 ? trimmed.slice(gt + 1).trim() : "";
+      if (!source || !target) {
+        throw new ParseError(
+          `mechanism step ${JSON.stringify(label)} has a malformed flow: ${JSON.stringify(trimmed)} ` +
+            '(expected "SOURCE > TARGET")',
+        );
+      }
+      flows.push(new MechanismFlow(source, target));
+    }
+  }
+  return { reaction, flows };
 }
 
 function validateColonLines(body: string, what: string): void {

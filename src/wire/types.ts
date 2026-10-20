@@ -111,6 +111,7 @@ export interface Mechanism {
   readonly steps?: {
     label?: string;
     reaction: Reaction;
+    flows?: { source: string; target: string }[];
   }[];
   readonly spectators?: Molecule[];
 }
