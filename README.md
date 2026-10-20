@@ -57,7 +57,7 @@ schemas:
 | L0 | 100% — emission validates against the v1 JSON Schemas |
 | L1 | 100% — `parse(s).toText() === s` for every `roundTrip` case |
 | L3 | 100% — `@`/`@@` chirality, directional bonds, parity-correct canonical SMILES; every stereo fixture |
-| SMILES | 100% — ingestion + deterministic emission, every `structure/smiles/*` fixture (asciichem-tests v0.6.0) |
+| SMILES | 100% — ingestion + deterministic emission, every `structure/smiles/*` fixture (asciichem-tests v0.8.0) |
 | molfile | 100% — V2000 ingestion + emission, every `structure/molfile/*` fixture |
 | L2+ | MathML, CML round-trip, linter diagnostics: not yet claimed |
 
