@@ -88,6 +88,10 @@ describe("writeSmiles", () => {
       "ClC1=CC=CC=C1": "Clc1ccccc1",
       "C1=CC=NC=C1": "c1ccncc1",
       "C1=CC=C2C=CC=CC2=C1": "c1ccc2ccccc2c1",
+      // Hückel five-membered rings (corpus 0.8.0).
+      "C1=COC=C1": "c1cocc1",
+      "C1=CNC=C1": "c1c[nH]cc1",
+      "C1=CSC=C1": "c1cscc1",
     };
     for (const [kekule, expected] of Object.entries(canonical)) {
       expect(parseSmiles(kekule).toSmiles()).toBe(expected);
@@ -97,6 +101,12 @@ describe("writeSmiles", () => {
 
   it("keeps quinones Kekulé", () => {
     for (const smiles of ["O=C1C=CC=CC1", "O=C1C=CC(=O)C=C1"]) {
+      expect(parseSmiles(smiles).toSmiles()).toBe(smiles);
+    }
+  });
+
+  it("keeps four-pi and three-membered rings Kekulé", () => {
+    for (const smiles of ["C1=CCC=C1", "C1=CC1"]) {
       expect(parseSmiles(smiles).toSmiles()).toBe(smiles);
     }
   });

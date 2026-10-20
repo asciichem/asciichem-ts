@@ -98,30 +98,57 @@ export function implicitHydrogens(atom: Atom, valenceSum: number): number | null
   return Math.min(...deficits);
 }
 
-// Six-membered cycles where every atom is sp2 — participates in a
-// double bond to an atom that is itself in a ring, or is
-// aromatic-flagged. The partner-in-a-ring requirement keeps quinones
-// out: their carbons are sp2, but the double bonds that make them so
-// point at exocyclic oxygens, and writing such a ring as aromatic
-// SMILES would state the wrong bond orders. A fused system still
-// qualifies — naphthalene's fusion carbons double-bond to atoms of
-// the neighbouring ring. Full Hückel pi-electron counting is a later
-// slice.
+// pi-electron-donating heteroatoms: a ring atom with no double bond
+// of its own contributes its lone pair (pyrrole N, furan O,
+// thiophene S) — the 2 electrons that make those five-membered rings
+// 4n+2.
+export const LONE_PAIR_DONORS = ["N", "O", "S", "P", "Se", "As"];
+
+// Aromatic rings by Hueckel counting: 5- and 6-membered cycles whose
+// pi contributions total 6 or 10 (4n+2 with n >= 1; n = 0 is a charged
+// three-membered ring, which perception declines). Per atom: an
+// in-system double bond contributes 1; a lone-pair donor with no
+// double contributes 2; a carbon with only single bonds or an
+// exocyclic double contributes 0. Charged atoms make the count
+// undecidable and the ring is declined; aromatic-flagged rings are
+// taken as stated.
+//
+// This sees fused systems (naphthalene's shared bond is single, but
+// each atom's double bond lies in the ring system) and keeps quinones
+// out (their carbons' only doubles point at exocyclic oxygens).
 export function aromaticRings(atoms: Atom[], edges: Edge[]): number[][] {
   const cycles = ringCycles(edges, atoms.length);
   const cyclicAtoms = new Set(cycles.flat());
-  return cycles
-    .filter((cycle) => cycle.length === 6)
-    .filter((cycle) => cycle.every((i) => isSp2(i, atoms, edges, cyclicAtoms)));
+  return cycles.filter((cycle) => aromaticCycle(cycle, atoms, edges, cyclicAtoms));
 }
 
-export function isSp2(
-  atomIndex: number,
+function aromaticCycle(
+  cycle: number[],
   atoms: Atom[],
   edges: Edge[],
   cyclicAtoms: Set<number>,
 ): boolean {
-  if (atoms[atomIndex].aromatic === true) return true;
+  if (cycle.some((i) => atoms[i].aromatic === true)) return true;
+  if (cycle.length !== 5 && cycle.length !== 6) return false;
+  const electrons = cycle.map((i) => ringPiElectrons(atoms[i], i, edges, cyclicAtoms));
+  if (electrons.some((e) => e === null)) return false;
+  const total = electrons.reduce<number>((sum, e) => sum + (e as number), 0);
+  return total === 6 || total === 10;
+}
+
+function ringPiElectrons(
+  atom: Atom,
+  atomIndex: number,
+  edges: Edge[],
+  cyclicAtoms: Set<number>,
+): number | null {
+  if (atom.charge != null) return null;
+  if (inSystemDouble(atomIndex, edges, cyclicAtoms)) return 1;
+  if (LONE_PAIR_DONORS.includes(atom.element)) return 2;
+  return 0;
+}
+
+function inSystemDouble(atomIndex: number, edges: Edge[], cyclicAtoms: Set<number>): boolean {
   return edges.some((edge) => {
     if (edge.from !== atomIndex && edge.to !== atomIndex) return false;
     if (edge.kind !== "double") return false;
