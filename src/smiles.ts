@@ -547,12 +547,17 @@ class DeterministicWriter {
 
   // Single/aromatic bonds continue the chain (multiple bonds branch),
   // then larger subtrees, then the lexicographically smallest atom
-  // token — order-independent, so the canonical form does not depend
-  // on how the input numbered its atoms.
+  // A closure-bearing child continues the chain (SMILES writes
+  // ring-closure digits at the end of a traversal — and this keeps the
+  // written atom order equal to the model's), then single/aromatic
+  // bonds, then larger subtrees, then the lexicographically smallest
+  // atom token — order-independent, so the canonical form does not
+  // depend on how the input numbered its atoms.
   private compareContinuation(index: number, a: number, b: number): number {
-    const rank = (child: number): [number, number, string] => {
+    const rank = (child: number): [number, number, number, string] => {
       const kind = this.adjacency[index].get(child)!;
       return [
+        this.closures[child].length === 0 ? 1 : 0,
         CONTINUATION_BONDS.includes(kind) ? 0 : 1,
         -this.treeSize[child],
         this.atomToken(child),
@@ -560,7 +565,7 @@ class DeterministicWriter {
     };
     const ra = rank(a);
     const rb = rank(b);
-    return ra[0] - rb[0] || ra[1] - rb[1] || ra[2].localeCompare(rb[2]);
+    return ra[0] - rb[0] || ra[1] - rb[1] || ra[2] - rb[2] || ra[3].localeCompare(rb[3]);
   }
 
   private ringDigitFor(a: number, b: number): string {
