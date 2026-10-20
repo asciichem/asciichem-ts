@@ -304,11 +304,56 @@ export class Molecule extends Node {
   }
 }
 
+export type ConditionRole = "catalyst" | "solvent" | "reagent";
+
+export interface ConditionEntry {
+  readonly role: ConditionRole | null;
+  readonly value: string;
+  readonly side: "above" | "below";
+}
+
+const CONDITION_ROLE_PREFIXES: Record<string, ConditionRole> = {
+  cat: "catalyst",
+  catalyst: "catalyst",
+  solv: "solvent",
+  solvent: "solvent",
+  reag: "reagent",
+  reagent: "reagent",
+};
+
+function conditionEntriesFor(side: "above" | "below", text?: string): ConditionEntry[] {
+  if (text == null || text.trim() === "") return [];
+  const out: ConditionEntry[] = [];
+  for (const chunk of text.split(";")) {
+    const trimmed = chunk.trim();
+    if (trimmed === "") continue;
+    const colon = trimmed.indexOf(":");
+    const role =
+      colon >= 0 ? CONDITION_ROLE_PREFIXES[trimmed.slice(0, colon).trim().toLowerCase()] : undefined;
+    out.push({
+      role: role ?? null,
+      value: role ? trimmed.slice(colon + 1).trim() : trimmed,
+      side,
+    });
+  }
+  return out;
+}
+
 export class ReactionConditions {
   constructor(
     readonly above?: string,
     readonly below?: string,
   ) {}
+
+  // Typed `role: value` entries derived from the bracket text (which
+  // stays verbatim — the round-trip source). `;` separates entries;
+  // unknown role prefixes are free text, never an error.
+  get entries(): ConditionEntry[] {
+    return [
+      ...conditionEntriesFor("above", this.above),
+      ...conditionEntriesFor("below", this.below),
+    ];
+  }
 }
 
 export class Reaction extends Node {
