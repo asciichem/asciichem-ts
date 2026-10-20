@@ -22,6 +22,7 @@ interface Fixture {
   parses?: boolean;
   roundTrip?: boolean;
   smilesRoundTrip?: boolean;
+  canonicalSmiles?: string;
   molfileRoundTrip?: boolean;
   mathml?: string;
   atoms?: number;

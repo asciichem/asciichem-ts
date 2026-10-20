@@ -5,6 +5,7 @@
 import { Atom, Bond, BondKind, Formula, Molecule, Node } from "./model.js";
 import { ParseError } from "./errors.js";
 import { buildGraph, linearize, Edge } from "./structure.js";
+import { aromaticRings } from "./perception.js";
 
 const ORGANIC = ["Cl", "Br", "B", "C", "N", "O", "P", "S", "F", "I"];
 const AROMATIC = ["se", "as", "b", "c", "n", "o", "p", "s"];
@@ -410,7 +411,27 @@ function writeMolecule(molecule: Molecule): string {
     modelNeighbours[edge.from].push(edge.to);
     modelNeighbours[edge.to].push(edge.from);
   }
-  const writer = new DeterministicWriter(atoms, adjacency, directions, modelNeighbours);
+  // The canonicalizer consumes the perception pass: atoms in
+  // perceived aromatic rings are written lowercase and the ring
+  // bonds between them carry no bond symbol, so Kekulé benzene
+  // canonicalizes to `c1ccccc1`.
+  const perceivedAromatic = new Set<number>();
+  const perceivedRingEdges = new Set<string>();
+  for (const ring of aromaticRings(atoms, edges)) {
+    for (const atom of ring) perceivedAromatic.add(atom);
+    ring.forEach((atom, i) => {
+      const other = ring[(i + 1) % ring.length];
+      perceivedRingEdges.add([Math.min(atom, other), Math.max(atom, other)].join("-"));
+    });
+  }
+  const writer = new DeterministicWriter(
+    atoms,
+    adjacency,
+    directions,
+    modelNeighbours,
+    perceivedAromatic,
+    perceivedRingEdges,
+  );
   return writer.write();
 }
 
@@ -432,6 +453,8 @@ class DeterministicWriter {
     private readonly adjacency: Map<number, BondKind>[],
     private readonly edgeDirections: Map<string, "up" | "down"> = new Map(),
     private readonly modelOrder: number[][] = [],
+    private readonly perceivedAromatic: Set<number> = new Set(),
+    private readonly perceivedRingEdges: Set<string> = new Set(),
   ) {}
 
   write(): string {
@@ -582,6 +605,13 @@ class DeterministicWriter {
   }
 
   private bondToken(kind: BondKind, from: number, to: number): string {
+    // A bond inside a perceived aromatic ring is implied by the
+    // lowercase atoms: writing `=`/`-` there would state Kekulé
+    // alternation the canonical form does not carry.
+    const ringKey = [Math.min(from, to), Math.max(from, to)].join("-");
+    if (this.perceivedRingEdges.has(ringKey) && this.aromatic(from) && this.aromatic(to)) {
+      return "";
+    }
     if (kind === "single") {
       const direction = this.edgeDirections.get(
         [Math.min(from, to), Math.max(from, to)].join("-"),
@@ -597,7 +627,7 @@ class DeterministicWriter {
 
   private atomToken(index: number): string {
     const atom = this.atoms[index];
-    const aromatic = atom.aromatic === true;
+    const aromatic = this.aromatic(index);
     const lowercase = aromatic && LOWERCASE_AROMATIC.includes(atom.element);
     const needsBracket =
       atom.charge !== undefined ||
@@ -629,6 +659,6 @@ class DeterministicWriter {
   }
 
   private aromatic(index: number): boolean {
-    return this.atoms[index].aromatic === true;
+    return this.atoms[index].aromatic === true || this.perceivedAromatic.has(index);
   }
 }
