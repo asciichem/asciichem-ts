@@ -15,11 +15,15 @@ import {
   ArrowKind,
   Reaction,
   ReactionCascade,
+  Mechanism,
+  MechanismFlow,
+  MechanismStep,
   ReactionConditions,
   TermSymbol,
   Text,
   Node,
 } from "../model.js";
+import { TextFormatter } from "../formatter/text.js";
 import { ParseError } from "../errors.js";
 import type { WireNode } from "./types.js";
 
@@ -36,6 +40,7 @@ const CORE_INGEST_TYPES = new Set([
   "electron-configuration",
   "embedded-math",
   "text",
+  "mechanism",
 ]);
 
 export function fromModelJSON(json: string | WireNode): Formula {
@@ -133,6 +138,26 @@ function fromNode(wire: AnyWire): Node {
       return new EmbeddedMath(wire.source as string);
     case "text":
       return new Text(wire.content as string);
+    case "mechanism": {
+      // The model keeps a step's reaction as TEXT; the wire carries the
+      // typed node, so ingestion renders it back through the canonical
+      // text form.
+      const formatter = new TextFormatter();
+      const steps = ((wire.steps as AnyWire[] | undefined) ?? []).map((s) => {
+        const flows = ((s.flows as AnyWire[] | undefined) ?? []).map(
+          (f) => new MechanismFlow(f.source as string, f.target as string),
+        );
+        return new MechanismStep(
+          s.label as string,
+          formatter.render(fromNode(s.reaction as AnyWire)),
+          flows,
+        );
+      });
+      const spectators = ((wire.spectators as AnyWire[] | undefined) ?? []).map(
+        (sp) => formatter.render(fromNode(sp)),
+      );
+      return new Mechanism(steps, spectators);
+    }
     default:
       throw new ParseError(`unhandled wire type: ${wire.type}`);
   }

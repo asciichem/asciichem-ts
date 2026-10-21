@@ -2,7 +2,7 @@
 // step value is its reaction followed by `| flow: SRC > DST` clauses.
 // Unknown clauses are rejected, never dropped.
 import { describe, expect, it } from "vitest";
-import { parse, Mechanism, ParseError } from "../../src/index.js";
+import { fromModelJSON, parse, Mechanism, ParseError } from "../../src/index.js";
 
 function mechanism(body: string): Mechanism {
   return parse(`mechanism{\n  ${body}\n}`).nodes[0] as Mechanism;
@@ -48,5 +48,24 @@ describe("mechanism electron-flow markers", () => {
       steps: { flows?: unknown }[];
     };
     expect(wire.steps[0]).not.toHaveProperty("flows");
+  });
+
+  // Wire ingestion (TODO.v2/13 item 4): steps come back as canonical
+  // reaction text, flows and spectators intact.
+  it("round-trips through the wire form", () => {
+    const body = [
+      "s1: A-B -> A + B | flow: A-B > A; B > B-C",
+      "s2: 2C ->[cat: Pd] D",
+      "  spectator: Na^+",
+    ].join("\n");
+    const formula = parse(`mechanism{\n  ${body}\n}`);
+    const text = formula.toText();
+    const parsed = fromModelJSON(JSON.stringify(formula.toModelJSON())).nodes[0] as Mechanism;
+    expect(parsed.toText()).toBe(text);
+    expect(parsed.steps[0].flows.map((f) => [f.source, f.target])).toEqual([
+      ["A-B", "A"],
+      ["B", "B-C"],
+    ]);
+    expect(parsed.spectators).toEqual(["Na^+"]);
   });
 });
