@@ -37,7 +37,11 @@ export class StructuralSvgFormatter implements Visitor<string> {
     const inner = children
       .map((svg, i) => {
         const b = boxes[i];
-        return `<svg x="${round(b.minX - bounds.minX)}" y="${round(b.minY - bounds.minY)}" width="${round(b.width)}" height="${round(b.height)}" overflow="visible">${stripOuter(svg)}</svg>`;
+        // The child's content is drawn in its own viewBox coordinates
+        // (negative-origin for most layouts). Carrying the child's
+        // viewBox maps that content into the placed viewport; without
+        // it, raw coordinates paint outside the outer viewBox.
+        return `<svg x="${round(b.minX - bounds.minX)}" y="${round(b.minY - bounds.minY)}" width="${round(b.width)}" height="${round(b.height)}" viewBox="${round(b.minX)} ${round(b.minY)} ${round(b.width)} ${round(b.height)}" overflow="visible">${stripOuter(svg)}</svg>`;
       })
       .map((s) => `    ${s}`)
       .join("\n");
