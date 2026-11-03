@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseText } from "../../src/parser.js";
+import { Formula } from "../../src/model.js";
 import "../../src/index.js";
 
 describe("linear SVG", () => {
@@ -64,5 +65,34 @@ describe("structural SVG", () => {
     const first = parseText("C1-C-C-C-C-C1").toStructuralSvg();
     const second = parseText("C1-C-C-C-C-C1").toStructuralSvg();
     expect(first).toBe(second);
+  });
+
+  it("keeps molecule content inside the formula viewBox", () => {
+    // Layout positions can be negative (the molecule's own viewBox
+    // starts at its bound origin). The formula-level wrapper nests the
+    // molecule viewport at the union offset, so the inner <svg> must
+    // carry the molecule's viewBox — without it the raw coordinates
+    // paint outside the outer viewBox and clip in HTML.
+    const svg = parseText("C1-C-C-C-C-C1").toStructuralSvg();
+    const inner = /<svg x="[^>]+>/.exec(svg)?.[0] ?? "";
+    // The molecule's bound origin is negative; the inner viewport
+    // carries it so the raw coordinates map inside the outer box.
+    expect(inner).toMatch(/viewBox="-[\d.]+ -[\d.]+ 157 160"/);
+    expect(svg).toContain('viewBox="0 0 157 160"');
+  });
+
+  it("maps each molecule's viewBox when nesting several", () => {
+    // Two molecules in one formula: each viewport is placed at its
+    // union offset and carries its own viewBox, so each child's raw
+    // coordinates land inside its viewport.
+    const water = parseText("H-O-H").nodes[0];
+    const chain = parseText("C-C-C").nodes[0];
+    const svg = new Formula([water, chain]).toStructuralSvg();
+    const inners = [...svg.matchAll(/<svg x="[^"]+" y="[^"]+" width="[^"]+" height="[^"]+" viewBox="([^"]+)"/g)];
+    expect(inners.length).toBe(2);
+    for (const [, vb] of inners) {
+      // Each child carries its own (negative-origin) viewBox.
+      expect(vb).toMatch(/^-[\d.]+ -[\d.]+ \d/);
+    }
   });
 });
