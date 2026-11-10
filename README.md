@@ -59,11 +59,25 @@ schemas:
 | L3 | 100% — `@`/`@@` chirality, directional bonds, parity-correct canonical SMILES; every stereo fixture |
 | SMILES | 100% — ingestion + deterministic emission, every `structure/smiles/*` fixture (asciichem-tests v0.8.0) |
 | molfile | 100% — V2000 ingestion + emission, every `structure/molfile/*` fixture |
-| L2+ | MathML, CML round-trip, linter diagnostics: not yet claimed |
+| L2 (MathML goldens) | 100% — byte-identical against the corpus goldens |
+| CML / linter | not yet claimed |
 
 The parser is a rule-by-rule peggy port of the reference grammar
 (`asciichem-ruby/lib/asciichem/grammar.rb`); alternation order and
 lookaheads are preserved so acceptance matches the reference exactly.
+
+### Conformance levels
+
+Mapped onto the ecosystem's formal levels — see
+[the levels document](https://www.asciichem.org/guides/conformance-levels/):
+
+| Level | Claim |
+|---|---|
+| L0 notation | **yes** — parse/reject and canonical Text round-trip at 100% |
+| L1 semantics | **yes** — wire emission validates against the v1 schemas; wire round-trip is lossless for the core set (beyond-core node types are emission-only) |
+| L2 render | **yes** — canonical text, wire, MathML goldens, typographic and structural SVG |
+| L3 stereo | **yes** — `@`/`@@` chirality, directional bonds, parity-correct canonical SMILES |
+| L4 identity | not claimed — `identityFor` provides an engine seam only; no bundled engine |
 
 ## Where molecule structures come from
 
