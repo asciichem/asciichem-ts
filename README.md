@@ -45,6 +45,28 @@ Rebuild the model from wire JSON with `fromModelJSON` (the lossless
 core set; beyond-core node types are emission-only until their corpus
 round-trip levels land).
 
+The chemistry-judgement tracks ride the same package (TODO.v2 02/07/08):
+
+```ts
+import { parse, runLinter, validIdentifier, ResolverRegistry, citationXml } from "asciichem";
+
+// Lint — chemistry checks over the model (total, never throws):
+runLinter(parse("H_2 + O_2 -> H_2O"));
+// [Diagnostic(error, "Reaction is not balanced: O: 2 vs 1", "Reaction")]
+
+// Offline identifier validation (lexical/checksum only):
+validIdentifier("cas", "50-78-2"); // true
+
+// Resolve identifiers to substance records (network; cached in the
+// user cache dir; the fetch transport is injectable for replay):
+const registry = ResolverRegistry.shipped(); // pubchem, opsin, common_chemistry
+await registry.resolve({ value: "50-78-2", convention: "cas" });
+
+// Cite — one dataset-type Relaton bibitem per (substance, source),
+// built and serialized through the leptris engine:
+await citationXml(substance); // <bibitem type="dataset" ...>
+```
+
 ## Conformance claim
 
 Verified in CI against the [asciichem-tests](https://github.com/asciichem/asciichem-tests)
@@ -60,7 +82,11 @@ schemas:
 | SMILES | 100% — ingestion + deterministic emission, every `structure/smiles/*` fixture (asciichem-tests v0.8.0) |
 | molfile | 100% — V2000 ingestion + emission, every `structure/molfile/*` fixture |
 | L2 (MathML goldens) | 100% — byte-identical against the corpus goldens |
-| CML / linter | not yet claimed |
+| identifiers | 100% — the offline validator agrees with every `valid` marker |
+| L4 (linter) | 100% — diagnostics match every expectation under the no-engine posture; the 3 engine-`inchi` cases skip and report (no bundled engine — a posture, not a failure) |
+| resolver | 100% — every replay case: exact request URL + adapter-declared headers, the substance wire record with pinned provenance, cache markers (TTL, `sha256(source:convention:value)`, serves-offline), per-source failure isolation |
+| citation | 100% — every golden bibitem byte-equal, built and serialized through the leptris engine |
+| CLI | pending — the corpus's offline command set is reported as the pending slice (no CLI dispatch shipped yet) |
 
 Parsing runs through the compiled AsciiChem PARG artifact (vendored
 at `src/parg/asciichem.json` from the asciichem-parg contract — the
