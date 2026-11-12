@@ -1,5 +1,5 @@
-// Loads the asciichem-model v1 JSON Schemas (YAML) and compiles a
-// validator for the wire form. Relative "$ref": "x.yaml" links are
+// Loads the asciichem-model v1 JSON Schemas (YAML) and compiles
+// validators for the wire forms. Relative "$ref": "x.yaml" links are
 // rewritten to the target schema's pinned "$id" before registration.
 import Ajv from "ajv";
 import { readFileSync, readdirSync } from "node:fs";
@@ -34,7 +34,7 @@ function rewriteRefs(node: unknown, idByFile: Map<string, string>): void {
   }
 }
 
-export function wireValidator(): (wire: unknown) => true | string {
+function loadSchemasWithRefs(): JsonSchema[] {
   const schemas = loadSchemas(modelSchemaDir());
   const idByFile = new Map<string, string>();
   for (const schema of schemas) {
@@ -45,15 +45,27 @@ export function wireValidator(): (wire: unknown) => true | string {
     }
   }
   for (const schema of schemas) rewriteRefs(schema, idByFile);
+  return schemas;
+}
 
+function compileRoot(schemas: JsonSchema[], suffix: string): (wire: unknown) => true | string {
   const ajv = new Ajv({ allErrors: true, strict: false });
   for (const schema of schemas) ajv.addSchema(schema);
-  const validate = ajv.compile(
-    schemas.find((s) => (s.$id ?? "").endsWith("/formula")) as object,
-  );
+  const validate = ajv.compile(schemas.find((s) => (s.$id ?? "").endsWith(suffix)) as object);
   return (wire: unknown) => {
     const ok = validate(wire);
     if (ok) return true;
     return (validate.errors ?? []).map((e) => `${e.instancePath} ${e.message}`).join("; ");
   };
+}
+
+export function wireValidator(): (wire: unknown) => true | string {
+  return compileRoot(loadSchemasWithRefs(), "/formula");
+}
+
+// The resolver family's substance-record validator: the replayed
+// substance wire is checked against the asciichem-model v1
+// substance-record schema before the semantic comparison.
+export function substanceRecordValidator(): (wire: unknown) => true | string {
+  return compileRoot(loadSchemasWithRefs(), "/substance-record");
 }
