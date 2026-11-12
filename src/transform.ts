@@ -38,7 +38,7 @@ import {
   ZRow,
 } from "./model.js";
 import { ParseError } from "./errors.js";
-import { parse } from "./generated/parser.mjs";
+import { parseFormulaCaptures, PargSyntaxError } from "./parg/engine.js";
 
 // -- capture shapes (what the grammar returns) -------------------------
 
@@ -239,8 +239,8 @@ function nonEmpty(s: string | undefined | null): string | undefined {
   return s && s.length > 0 ? s : undefined;
 }
 
-// Peggy uses null (not undefined) for absent optionals; the model
-// speaks undefined.
+// The capture layer uses null (not undefined) for absent optionals;
+// the model speaks undefined.
 function nilToUndefined<T>(v: T | null | undefined): T | undefined {
   return v ?? undefined;
 }
@@ -395,7 +395,16 @@ function numberOrNil(s: string | undefined): number | undefined {
 
 function parseCrystalAtoms(body: string | undefined): Atom[] {
   if (!body) return [];
-  const formula = buildFormula(parse(body) as FormulaCapture);
+  let captures;
+  try {
+    captures = parseFormulaCaptures(body);
+  } catch (error) {
+    if (error instanceof PargSyntaxError) {
+      throw new ParseError(error.message, error.location);
+    }
+    throw error;
+  }
+  const formula = buildFormula(captures);
   const atoms: Atom[] = [];
   for (const node of formula.nodes) {
     if (node instanceof Molecule) {

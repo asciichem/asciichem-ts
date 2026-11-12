@@ -62,9 +62,12 @@ schemas:
 | L2 (MathML goldens) | 100% — byte-identical against the corpus goldens |
 | CML / linter | not yet claimed |
 
-The parser is a rule-by-rule peggy port of the reference grammar
-(`asciichem-ruby/lib/asciichem/grammar.rb`); alternation order and
-lookaheads are preserved so acceptance matches the reference exactly.
+Parsing runs through the compiled AsciiChem PARG artifact (vendored
+at `src/parg/asciichem.json` from the asciichem-parg contract — the
+same checksummed artifact the Ruby reference and the Rust crate use)
+over the parsanol wasm engine; the artifact's shape tree is adapted to
+the capture shapes `src/transform.ts` consumes, so acceptance matches
+the shared contract exactly.
 
 ### Conformance levels
 
@@ -106,7 +109,7 @@ molecules rather than inventing a structure the author did not state.
 ## Architecture
 
 ```
-text ─► grammar (peggy port) ─► transform ─► model ─► formatter (visitor)
+text ─► PARG artifact (parsanol wasm) ─► transform ─► model ─► formatter (visitor)
                                      │                     ├─ text  (canonicaliser)
                                      │                     ├─ svg   (typographic)
                                      │                     └─ structural-svg (2D layout)
@@ -114,8 +117,11 @@ text ─► grammar (peggy port) ─► transform ─► model ─► formatter 
                                        (asciichem-model v1 JSON)
 ```
 
-- **`grammar/asciichem.pegjs`** — PEG grammar mirroring the reference
-  parslet grammar; ordered choice is significant.
+- **`src/parg/`** — the checksummed PARG artifact (the grammar
+  contract, shared byte-for-byte with asciichem-ruby and
+  asciichem-rs) and the engine that parses it via
+  [parsanol](https://www.npmjs.com/package/parsanol) and adapts the
+  shape tree to the capture layer.
 - **`src/transform.ts`** — capture tree → model (the only place
   superscripts disambiguate charge vs oxidation state, exactly as the
   reference's AtomBuilder).
