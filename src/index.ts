@@ -10,6 +10,7 @@ import { fromModelJSON } from "./wire/from-wire.js";
 import { ParseError } from "./errors.js";
 import { parseSmiles, writeSmiles } from "./smiles.js";
 import { parseMolfile, writeMolfile } from "./molfile.js";
+import { formulaToCml, parseCmlToFormula, initCml, CmlError, CML_NAMESPACE, ACI_NAMESPACE } from "./cml.js";
 import { registerRenderer } from "./model.js";
 import { Formula, Molecule } from "./model.js";
 
@@ -17,6 +18,8 @@ import { Formula, Molecule } from "./model.js";
 import "./formatter/text.js";
 import "./formatter/svg.js";
 import "./formatter/mathml.js";
+import "./formatter/html.js";
+import "./formatter/latex.js";
 import "./wire/to-wire.js";
 
 // Linter check registration happens as a side effect of this import
@@ -31,6 +34,10 @@ registerRenderer<string>("molfile", (node) => {
   if (node instanceof Molecule) return writeMolfile(node);
   throw new ParseError("only molecules have a molfile form");
 });
+registerRenderer<string>("cml", (node) => {
+  if (node instanceof Formula) return formulaToCml(node);
+  throw new ParseError("only formulas have a CML form");
+});
 
 export { parseText as parse } from "./parser.js";
 export { fromModelJSON } from "./wire/from-wire.js";
@@ -41,7 +48,17 @@ export { TextFormatter } from "./formatter/text.js";
 export { SvgFormatter } from "./formatter/svg.js";
 export { StructuralSvgFormatter } from "./formatter/structural-svg.js";
 export { MathmlFormatter, renderMathml } from "./formatter/mathml.js";
+export { HtmlFormatter } from "./formatter/html.js";
+export { LatexFormatter } from "./formatter/latex.js";
 export { parseSmiles, writeSmiles, parseMolfile, writeMolfile };
+export {
+  formulaToCml,
+  parseCmlToFormula,
+  initCml,
+  CmlError,
+  CML_NAMESPACE,
+  ACI_NAMESPACE,
+};
 export * as Perception from "./perception.js";
 export { parseText };
 export {
@@ -51,6 +68,7 @@ export {
   type InchiEngine,
   type InchiIdentity,
 } from "./inchi.js";
+export { chemomerAvailable, registerChemomerEngine } from "./inchi-chemomer.js";
 export {
   runLinter,
   hasLintErrors,
