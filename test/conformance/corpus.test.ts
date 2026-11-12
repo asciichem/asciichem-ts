@@ -39,7 +39,7 @@ import {
   type Adapter,
 } from "../../src/index.js";
 import "../../src/index.js";
-import { wireValidator } from "./schemas.js";
+import { wireValidator, substanceRecordValidator } from "./schemas.js";
 
 interface LintExpectation {
   severity: string;
@@ -107,6 +107,7 @@ const available = existsSync(join(corpusDir(), "corpus", "fixtures"));
 describe.skipIf(!available)("asciichem-tests corpus", () => {
   const fixtures = loadFixtures();
   const validate = wireValidator();
+  const validateSubstance = substanceRecordValidator();
 
   // Family selection (the reference runner's exact split): parser
   // cases (input, minus the families owning their keys), the
@@ -410,7 +411,13 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
         } else {
           expect(rejected, `${fixture.id}: unexpected rejection ${String(rejected)}`).toBeNull();
           expect(substance, `${fixture.id}: resolved`).not.toBeNull();
-          expect(substance?.toWire(), fixture.id).toEqual(expectation.substance);
+          // L0: the substance wire validates against the
+          // asciichem-model v1 substance-record schema, then compares
+          // semantically (key order cannot fail).
+          const wire = substance?.toWire();
+          const schemaResult = validateSubstance(wire);
+          expect(schemaResult, `${fixture.id}: ${schemaResult}`).toBe(true);
+          expect(wire, fixture.id).toEqual(expectation.substance);
           if (expectation.structureParses) {
             expect(substance?.structure, `${fixture.id}: source SMILES parses in the supported subset`).not.toBeNull();
           } else if (expectation.structureParses === false) {
