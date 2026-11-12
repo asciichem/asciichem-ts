@@ -19,6 +19,10 @@ import "./formatter/svg.js";
 import "./formatter/mathml.js";
 import "./wire/to-wire.js";
 
+// Linter check registration happens as a side effect of this import
+// (the same pattern as the formatter registrations).
+import "./linter/checks.js";
+
 registerRenderer<string>("smiles", (node) => {
   if (node instanceof Formula || node instanceof Molecule) return writeSmiles(node);
   throw new ParseError("only molecules and formulas of molecules have a SMILES form");
@@ -47,3 +51,51 @@ export {
   type InchiEngine,
   type InchiIdentity,
 } from "./inchi.js";
+export {
+  runLinter,
+  hasLintErrors,
+  checkNames,
+  Diagnostic,
+  type Severity,
+  type LintCheck,
+  type LintOptions,
+} from "./linter.js";
+export {
+  knownConvention,
+  validIdentifier,
+  identifierDiagnostic,
+  validatorFor,
+  type Validator,
+} from "./identifiers.js";
+export {
+  ResolverRegistry,
+  ResolverConflictError,
+  ResolverError,
+  resolveSubstance,
+  defaultResolverRegistry,
+  NetFetch,
+  cgiEscape,
+  Cache,
+  DEFAULT_TTL_SECONDS,
+  Substance,
+  provenanceNoteText,
+  PubChemAdapter,
+  OpsinAdapter,
+  CommonChemistryAdapter,
+  defaultApiKey,
+  type Adapter,
+  type Fetch,
+  type ResolveOptions,
+  type Provenance,
+  type ResolverIdentifier,
+  type ResolverProperty,
+} from "./resolver.js";
+export {
+  buildBibitem,
+  bibitemToXml,
+  citationXml,
+  CitationError,
+  CITATION_PROFILES,
+  type BibitemPayload,
+  type CitationProfile,
+} from "./citation.js";

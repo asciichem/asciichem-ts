@@ -1,7 +1,7 @@
 {
   "name": "asciichem",
   "version": "0.1.4",
-  "description": "TypeScript implementation of AsciiChem \u2014 parse ASCII chemistry into a semantic model and render Text, SVG, and canonical JSON wire form. Conformant with asciichem-model v1 and the asciichem-tests corpus.",
+  "description": "TypeScript implementation of AsciiChem — parse ASCII chemistry into a semantic model and render Text, SVG, and canonical JSON wire form. Conformant with asciichem-model v1 and the asciichem-tests corpus.",
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
@@ -40,6 +40,7 @@
     "yaml": "^2.6.1"
   },
   "dependencies": {
+    "leptris": "^0.1.51",
     "parsanol": "^0.10.48"
   }
 }

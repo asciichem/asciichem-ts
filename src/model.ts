@@ -116,6 +116,26 @@ export abstract class Node {
   toMolfile(name?: string): string {
     return renderWith<string>("molfile", this);
   }
+
+  // The linter's diagnostic context (the Ruby Diagnostic#to_s shape):
+  // `Atom(C)`, `Crystal(x)`, and the snake-case class name in words
+  // for everything else (`Reaction`, `Electron Configuration`).
+  // Container/atom overrides live on the classes; adding a new model
+  // class means overriding this — no edits in the linter.
+  diagnosticLabel(): string {
+    return this.type
+      .split("-")
+      .map((word) => word[0].toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+
+  // Child nodes for traversal (the Ruby Node#children contract).
+  // Default: no children. Container classes override; leaves inherit
+  // the empty default. Used by the linter walk — adding a new
+  // container class means overriding this, no edits in the linter.
+  children(): Node[] {
+    return [];
+  }
 }
 
 export class Formula extends Node {
@@ -125,6 +145,9 @@ export class Formula extends Node {
   }
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitFormula(this);
+  }
+  children(): Node[] {
+    return this.nodes;
   }
 }
 
@@ -187,6 +210,10 @@ export class Atom extends Node {
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitAtom(this);
   }
+
+  diagnosticLabel(): string {
+    return `Atom(${this.element})`;
+  }
 }
 
 export class Bond extends Node {
@@ -227,6 +254,9 @@ export class Group extends Node {
   }
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitGroup(this);
+  }
+  children(): Node[] {
+    return this.nodes;
   }
 }
 
@@ -302,6 +332,62 @@ export class Molecule extends Node {
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitMolecule(this);
   }
+  children(): Node[] {
+    return this.nodes;
+  }
+
+  // The integer stoichiometric coefficient: the authored leading
+  // number, or 1 when absent or not positive. Single source for every
+  // consumer (reaction stoichiometry, the balance check, composition).
+  stoichiometricCoefficient(): number {
+    const own = this.coefficient === undefined ? NaN : Number(this.coefficient);
+    return Number.isInteger(own) && own > 0 ? own : 1;
+  }
+
+  // Hash of element symbol => total atom count, recursing through
+  // groups and nested molecules with subscripts and multiplicities
+  // applied. Pass `withCoefficient: false` for the composition of a
+  // single molecule instance — identifiers describe the substance,
+  // not the stoichiometric multiplier.
+  elementCounts(withCoefficient = true): Record<string, number> {
+    const tally: Record<string, number> = {};
+    const multiplier = withCoefficient ? this.stoichiometricCoefficient() : 1;
+    for (const node of this.nodes) tallyElement(node, tally, multiplier);
+    return tally;
+  }
+
+  // Hill-system canonical formula: C first, then H, then others
+  // alphabetically. Single source of truth for "what is the canonical
+  // formula string of this molecule".
+  hillFormula(): string {
+    const counts = this.elementCounts();
+    const present = Object.entries(counts).filter(([, count]) => count !== 0);
+    if (present.length === 0) return "";
+    const carbon = present.filter(([el]) => el === "C");
+    const hydrogen = present.filter(([el]) => el === "H");
+    const others = present
+      .filter(([el]) => el !== "C" && el !== "H")
+      .sort(([a], [b]) => (a < b ? -1 : 1));
+    return [...carbon, ...hydrogen, ...others]
+      .map(([el, count]) => (count === 1 ? el : `${el}${count}`))
+      .join("");
+  }
+}
+
+function tallyElement(node: Node, tally: Record<string, number>, multiplier: number): void {
+  if (node instanceof Atom) {
+    const sub = node.subscript === undefined ? NaN : Number(node.subscript);
+    const count = (Number.isInteger(sub) && sub > 0 ? sub : 1) * multiplier;
+    tally[node.element] = (tally[node.element] ?? 0) + count;
+  } else if (node instanceof Group) {
+    const mult = node.multiplicity === undefined ? NaN : Number(node.multiplicity);
+    const groupMultiplier = (Number.isInteger(mult) && mult > 0 ? mult : 1) * multiplier;
+    for (const child of node.nodes) tallyElement(child, tally, groupMultiplier);
+  } else if (node instanceof Molecule) {
+    const inner = node.nodes;
+    const coeff = node.stoichiometricCoefficient();
+    for (const child of inner) tallyElement(child, tally, multiplier * coeff);
+  }
 }
 
 export type ConditionRole = "catalyst" | "solvent" | "reagent";
@@ -375,6 +461,9 @@ export class Reaction extends Node {
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitReaction(this);
   }
+  children(): Node[] {
+    return [...this.reactants, ...this.products];
+  }
 }
 
 export class ReactionCascade extends Node {
@@ -384,6 +473,9 @@ export class ReactionCascade extends Node {
   }
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitReactionCascade(this);
+  }
+  children(): Node[] {
+    return this.steps.flatMap((step) => [...step.reactants, ...step.products]);
   }
 }
 
@@ -452,6 +544,12 @@ export class Crystal extends Node {
   }
   accept<T>(visitor: Visitor<T>): T {
     return visitor.visitCrystal(this);
+  }
+  children(): Node[] {
+    return this.atoms;
+  }
+  diagnosticLabel(): string {
+    return `Crystal(${this.name ?? "unnamed"})`;
   }
 }
 
