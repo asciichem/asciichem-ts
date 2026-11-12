@@ -20,6 +20,15 @@ the reference implementation; both must pass the same corpus.
 npm install asciichem
 ```
 
+The InChI engine is an optional extra — install it alongside to enable
+`identity` derivation and the engine-postured linter cross-check (the
+`inchi-posture` CI job runs the suite with it; the default install
+keeps the no-engine posture):
+
+```sh
+npm install chemomer   # the wasm InChI engine (published by chemomer-ts)
+```
+
 ## Usage
 
 ```ts
@@ -44,6 +53,26 @@ parseMolfile(molfileV2000Text);           // coordinates preserved
 Rebuild the model from wire JSON with `fromModelJSON` (the lossless
 core set; beyond-core node types are emission-only until their corpus
 round-trip levels land).
+
+The package also ships the `asciichem` CLI (the same offline command
+set the Ruby and Rust runtimes expose) and bidirectional CML through
+the leptris engine:
+
+```sh
+asciichem convert -i "H_2O" -t html    # mathml|text|html|latex|svg|structural-svg|model-json|cml|smiles|molfile
+asciichem roundtrip -i "H_2O"          # exit non-zero on a mismatch
+asciichem lint -i "H_2 + O_2 -> H_2O"  # -f json for the payload
+asciichem validate -i 'H_2O @cas("50-7-8")'
+asciichem parse-cml -i "<cml>…</cml>"  # CML → AsciiChem text
+asciichem identity -i CCO --from smiles  # requires the chemomer extra
+asciichem tree
+```
+
+```ts
+await initCml();                 // one leptris warm-up per process
+parse("H_2O").toCml();           // canonical CML wire (aci: extensions included)
+parseCmlToFormula(xml).toText(); // CML → model → canonical text
+```
 
 The chemistry-judgement tracks ride the same package (TODO.v2 02/07/08):
 
@@ -83,10 +112,11 @@ schemas:
 | molfile | 100% — V2000 ingestion + emission, every `structure/molfile/*` fixture |
 | L2 (MathML goldens) | 100% — byte-identical against the corpus goldens |
 | identifiers | 100% — the offline validator agrees with every `valid` marker |
-| L4 (linter) | 100% — diagnostics match every expectation under the no-engine posture; the 3 engine-`inchi` cases skip and report (no bundled engine — a posture, not a failure) |
+| L4 (linter) | 100% — diagnostics match every expectation; the `inchi-posture` CI job installs the chemomer wasm engine and runs the engine-`inchi` cases, while the default job runs the no-engine posture (a posture, not a failure) |
+| CML | 100% — three-way round-trip (`parse → toCml → parse → toText === input`) for every `cml-roundtrip` fixture, through the leptris engine |
 | resolver | 100% — every replay case: exact request URL + adapter-declared headers, the substance wire record with pinned provenance, cache markers (TTL, `sha256(source:convention:value)`, serves-offline), per-source failure isolation |
 | citation | 100% — every golden bibitem byte-equal, built and serialized through the leptris engine |
-| CLI | pending — the corpus's offline command set is reported as the pending slice (no CLI dispatch shipped yet) |
+| CLI | 100% — the corpus's offline command set (`convert`/`roundtrip`/`lint`/`validate`/`parse-cml`/`version`/`tree`) dispatched in-process: exit codes, stdout bytes, JSON payloads, and the `{version}` placeholder |
 
 Parsing runs through the compiled AsciiChem PARG artifact (vendored
 at `src/parg/asciichem.json` from the asciichem-parg contract — the
@@ -104,9 +134,9 @@ Mapped onto the ecosystem's formal levels — see
 |---|---|
 | L0 notation | **yes** — parse/reject and canonical Text round-trip at 100% |
 | L1 semantics | **yes** — wire emission validates against the v1 schemas; wire round-trip is lossless for the core set (beyond-core node types are emission-only) |
-| L2 render | **yes** — canonical text, wire, MathML goldens, typographic and structural SVG |
+| L2 render | **yes** — canonical text, wire, MathML goldens, typographic and structural SVG, HTML and LaTeX |
 | L3 stereo | **yes** — `@`/`@@` chirality, directional bonds, parity-correct canonical SMILES |
-| L4 identity | not claimed — `identityFor` provides an engine seam only; no bundled engine |
+| L4 identity | **yes, engine-postured** — identity derivation runs through the optional chemomer wasm engine (`npm install chemomer`, verified by the `inchi-posture` CI job); without the extra, `identityFor` raises guidance (no bundled engine) |
 
 ## Where molecule structures come from
 

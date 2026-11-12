@@ -3,15 +3,15 @@
 // cloned next to this repo):
 //   L0 emission + schema validation, L1 Text round-trip, L2 MathML
 //   golden, SMILES + molfile ingestion, the identifier validators, L4
-//   linter diagnostics (engine-postured), and the parity families:
-//   resolver replay, citation bytes, CLI (skip-and-reported — no CLI
-//   dispatch shipped in this slice).
+//   linter diagnostics (engine-postured), the CML round-trip family,
+//   and the parity families: resolver replay, citation bytes, and the
+//   CLI (the offline command set, dispatched in-process).
 //
 // Family selection mirrors the reference runner: each fixture belongs
 // to exactly one family, keyed by its distinguishing property
 // (input/lint/convention/request/invocation), so families never double
 // gate the same case.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll } from "vitest";
 import { existsSync, readFileSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -24,6 +24,9 @@ import { buildGraph } from "../../src/structure.js";
 import { validIdentifier } from "../../src/identifiers.js";
 import { runLinter, type Diagnostic } from "../../src/linter.js";
 import { inchiEngine } from "../../src/inchi.js";
+import { initCml, parseCmlToFormula } from "../../src/cml.js";
+import { runCli } from "../../src/cli.js";
+import { chemomerAvailable, registerChemomerEngine } from "../../src/inchi-chemomer.js";
 import {
   ResolverRegistry,
   PubChemAdapter,
@@ -64,6 +67,7 @@ interface Fixture {
   smilesRoundTrip?: boolean;
   canonicalSmiles?: string;
   molfileRoundTrip?: boolean;
+  cmlRoundTrip?: boolean;
   mathml?: string;
   atoms?: number;
   bonds?: number;
@@ -87,6 +91,10 @@ interface Fixture {
   // cli family
   invocation?: string[];
   exit?: number;
+  stdout?: string;
+  stdoutIncludes?: string[];
+  stdoutJson?: unknown;
+  stderrIncludes?: string[];
   [key: string]: unknown;
 }
 
@@ -111,16 +119,22 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
 
   // Family selection (the reference runner's exact split): parser
   // cases (input, minus the families owning their keys), the
-  // identifier validators, L4 lint, the parity families (resolver,
-  // citation, CLI), and the structure families (SMILES, molfile,
-  // perception — the last also gated in detail by perception.test.ts).
+  // identifier validators, L4 lint, the CML round-trip family, and the
+  // parity families (resolver, citation, CLI), plus the structure
+  // families (SMILES, molfile, perception — the last also gated in
+  // detail by perception.test.ts).
   const parserCases = fixtures.filter(
-    (f) => typeof f.input === "string" && f.lint === undefined && f.convention === undefined,
+    (f) =>
+      typeof f.input === "string" &&
+      f.lint === undefined &&
+      f.convention === undefined &&
+      f.cmlRoundTrip === undefined,
   );
   const identifierCases = fixtures.filter(
     (f) => typeof f.convention === "string" && typeof f.value === "string" && typeof f.valid === "boolean",
   );
   const lintCases = fixtures.filter((f) => Array.isArray(f.lint));
+  const cmlCases = fixtures.filter((f) => f.cmlRoundTrip !== undefined);
   const resolverCases = fixtures.filter(
     (f) => typeof f.source === "string" && f.request !== undefined && f.expectation !== undefined,
   );
@@ -139,6 +153,7 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
       parserCases,
       identifierCases,
       lintCases,
+      cmlCases,
       resolverCases,
       citationCases,
       cliCases,
@@ -250,12 +265,17 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   });
 
   // L4: linter diagnostics. Engine posture: the identity cross-check
-  // is engine-scaled; this implementation's posture is whatever is
-  // registered in the global engine seam (no engine → "none"). A case
-  // whose posture marker differs skips and reports — a missing engine
-  // is a posture, not a failure.
+  // is engine-scaled; this implementation's posture is whether the
+  // chemomer engine extra is installed (never a hard dependency — the
+  // posture is configuration, detected synchronously and registered
+  // here so the cross-check sees a live engine in posture runs). A
+  // case whose posture marker differs skips and reports — a missing
+  // engine is a posture, not a failure.
   describe("L4 linter diagnostics", () => {
-    const posture: "none" | "inchi" = inchiEngine() !== undefined ? "inchi" : "none";
+    const posture: "none" | "inchi" = chemomerAvailable() ? "inchi" : "none";
+    beforeAll(async () => {
+      if (posture === "inchi") await registerChemomerEngine();
+    });
     const skippedByPosture: string[] = [];
 
     const matchesExpectation = (diagnostic: Diagnostic, expected: LintExpectation): boolean =>
@@ -508,20 +528,86 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
     }
   });
 
-  // CLI family: the corpus covers the offline command set; this slice
-  // ships no CLI dispatch, so every case skips and reports (the
-  // runner-contract's pending semantics — never silent). Family
-  // completeness is asserted globally ("exactly one family"), so a
-  // corpus-side CLI addition lands here and fails the family-coverage
-  // report until this runner acknowledges it.
+  // CLI family: the corpus covers the offline command set; each case
+  // runs `invocation` (the argv after the program name) against the
+  // in-process dispatch and asserts exit plus the stdout/stderr
+  // matchers (exact `stdout`, substring `stdoutIncludes`, semantic
+  // `stdoutJson`, substring `stderrIncludes`). The "{version}"
+  // placeholder in a matcher stands for this implementation's own
+  // version. The corpus pre-excuses implementations per case
+  // (`pending`); asciichem-ts is pre-excused for none — and if a
+  // corpus-side CLI addition lands, the family-coverage report above
+  // fails until this runner acknowledges it.
   describe("CLI contract", () => {
-    it("reports the CLI cases this implementation still owes", () => {
+    const version = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).version as string;
+    const substitute = (text: string): string => text.replaceAll("{version}", version);
+
+    const dispatch = async (
+      fixture: Fixture,
+    ): Promise<{ code: number; stdout: string; stderr: string }> => {
+      let stdout = "";
+      let stderr = "";
+      const code = await runCli(fixture.invocation ?? [], {
+        out: (text) => {
+          stdout += text;
+        },
+        err: (text) => {
+          stderr += text;
+        },
+        stdin: () => {
+          throw new Error(`${fixture.id}: the corpus carries no stdin cases`);
+        },
+      });
+      return { code, stdout, stderr };
+    };
+
+    const excused = cliCases.filter((f) => (f.pending ?? []).includes("asciichem-ts"));
+
+    for (const fixture of cliCases) {
+      it.runIf(!excused.includes(fixture))(fixture.id, async () => {
+        const { code, stdout, stderr } = await dispatch(fixture);
+        expect(code, `${fixture.id}: exit code (stderr: ${JSON.stringify(stderr)})`).toBe(fixture.exit);
+        if (fixture.stdout !== undefined) {
+          expect(stdout, fixture.id).toBe(substitute(fixture.stdout));
+        }
+        for (const included of fixture.stdoutIncludes ?? []) {
+          expect(stdout, fixture.id).toContain(substitute(included));
+        }
+        for (const included of fixture.stderrIncludes ?? []) {
+          expect(stderr, fixture.id).toContain(substitute(included));
+        }
+        if (fixture.stdoutJson !== undefined) {
+          // Semantic equality: parsed JSON, so key order cannot fail.
+          expect(JSON.parse(stdout), fixture.id).toEqual(fixture.stdoutJson);
+        }
+      });
+    }
+
+    it("reports the pre-excused cases (none for this implementation)", () => {
       expect(cliCases.length, "the corpus carries CLI cases").toBeGreaterThan(0);
-      // The corpus pre-excuses implementations per case (`pending`);
-      // asciichem-ts is pre-excused for none — the whole offline set
-      // is owed and reported here as the pending CLI slice.
-      const excused = cliCases.filter((f) => (f.pending ?? []).includes("asciichem-ts"));
       expect(excused.map((f) => f.id)).toEqual([]);
     });
+  });
+
+  // CML round-trip family: parse, emit the CML wire through the
+  // leptris engine, re-parse, and demand the canonical text back (the
+  // three-way contract). `parses: false` cases reject.
+  describe("CML round-trip", () => {
+    beforeAll(async () => {
+      await initCml();
+    });
+
+    for (const fixture of cmlCases) {
+      it(fixture.id, () => {
+        if (fixture.parses === false) {
+          expect(() => parseText(fixture.input as string), fixture.id).toThrow(ParseError);
+          return;
+        }
+        expect(fixture.parses, `${fixture.id} must parse`).toBe(true);
+        const input = fixture.input as string;
+        const cml = parseText(input).toCml();
+        expect(parseCmlToFormula(cml).toText(), fixture.id).toBe(input);
+      });
+    }
   });
 });

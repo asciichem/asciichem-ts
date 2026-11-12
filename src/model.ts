@@ -117,6 +117,11 @@ export abstract class Node {
     return renderWith<string>("molfile", this);
   }
 
+  // CML wire (requires the leptris engine warm-up: `await initCml()`).
+  toCml(): string {
+    return renderWith<string>("cml", this);
+  }
+
   // The linter's diagnostic context (the Ruby Diagnostic#to_s shape):
   // `Atom(C)`, `Crystal(x)`, and the snake-case class name in words
   // for everything else (`Reaction`, `Electron Configuration`).
