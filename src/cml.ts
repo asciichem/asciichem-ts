@@ -56,14 +56,6 @@ import { AsciiChemError } from "./errors.js";
 import { parseText } from "./parser.js";
 import * as leptris from "leptris";
 
-// The leptris package's runtime ships the synchronous serializer
-// (xmlSync in its index.js) but the published .d.ts lags it — the
-// typing fix is being filed upstream. A narrow local augmentation
-// covers the gap; no node_modules edits.
-declare module "leptris" {
-  export function xmlSync(id: number): string;
-}
-
 // The CML core namespace (the standard wire) and the AsciiChem
 // extension namespace (the `aci:` channels).
 export const CML_NAMESPACE = "http://www.xml-cml.org/schema";
