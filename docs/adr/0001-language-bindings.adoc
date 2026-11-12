@@ -40,8 +40,12 @@ site playground in favour of the corpus-conformant TS implementation
 
 ## Consequences
 
-- `asciichem-ts` (this repo) is a full peggy port of the reference
-  grammar, claiming parse/reject, L0, and L1 at 100% of the corpus.
+- `asciichem-ts` (this repo) claimed parse/reject, L0, and L1 at 100%
+  of the corpus as a peggy port of the reference grammar. Under the
+  PARG-language directive the parse engine is now the shared
+  checksummed PARG artifact over parsanol (the same artifact the Ruby
+  reference and the Rust crate parse) — the peggy port is retired and
+  the conformance claims stand against the shared artifact.
 - Adding an output format never edits the model (visitor extension).
 - Wire-form drift is prevented by schema validation in every
   implementation's conformance suite.

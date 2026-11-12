@@ -31,8 +31,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - name: Verify vendored wire types are current
+      - name: Verify vendored PARG artifact is current
         run: |
-          diff src/generated/parser.mjs <(npx peggy --format es -o /dev/stdout grammar/asciichem.pegjs 2>/dev/null) \
-            || (echo "grammar/asciichem.pegjs is stale — run npm run grammar"; exit 1)
+          git clone --depth 1 https://github.com/asciichem/asciichem-rs.git /tmp/asciichem-rs
+          diff src/parg/asciichem.json /tmp/asciichem-rs/artifacts/asciichem.json \
+            || (echo "src/parg/asciichem.json drifted from the asciichem-parg contract (artifacts/asciichem.json) — re-vendor"; exit 1)
       - run: npm test

@@ -1,5 +1,6 @@
-// Error taxonomy, mirroring AsciiChem::ParseError. Peggy syntax errors
-// are wrapped so callers only ever see AsciiChem errors from parse().
+// Error taxonomy, mirroring AsciiChem::ParseError. Engine syntax
+// errors are wrapped so callers only ever see AsciiChem errors from
+// parse().
 export class AsciiChemError extends Error {
   constructor(message: string) {
     super(message);

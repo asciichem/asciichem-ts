@@ -14,5 +14,5 @@ const N = 2000;
 const t0 = process.hrtime.bigint();
 for (let i = 0; i < N; i++) for (const s of WORKLOAD) parse(s);
 const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-console.log(`peggy: ${N} batches of 10 in ${ms.toFixed(1)} ms`);
+console.log(`parsanol (parg wasm): ${N} batches of 10 in ${ms.toFixed(1)} ms`);
 console.log(`batch: ${(ms / N).toFixed(2)} ms; per input: ${(ms / N / 10 * 1000).toFixed(0)} µs`);
