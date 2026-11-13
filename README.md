@@ -119,7 +119,7 @@ schemas:
 | CLI | 100% — the corpus's offline command set (`convert`/`roundtrip`/`lint`/`validate`/`parse-cml`/`version`/`tree`) dispatched in-process: exit codes, stdout bytes, JSON payloads, and the `{version}` placeholder |
 
 Parsing runs through the compiled AsciiChem PARG artifact (vendored
-at `src/parg/asciichem.json` from the asciichem-parg contract — the
+at `src/parg/asciichem.json` from the asciichem-grammar contract — the
 same checksummed artifact the Ruby reference and the Rust crate use)
 over the parsanol wasm engine; the artifact's shape tree is adapted to
 the capture shapes `src/transform.ts` consumes, so acceptance matches

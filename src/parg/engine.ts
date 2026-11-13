@@ -1,5 +1,5 @@
 // The PARG engine: parses through the compiled AsciiChem PARG artifact
-// (vendored from the asciichem-parg contract at src/parg/asciichem.json —
+// (vendored from the asciichem-grammar contract at src/parg/asciichem.json —
 // the same artifact the Ruby reference ships at
 // lib/asciichem/engine/parg/asciichem.json and the Rust crate embeds from
 // artifacts/) over the parsanol wasm runtime, and adapts the artifact's
@@ -54,7 +54,7 @@ function runtime(): PargRuntime {
     if (checksum !== ARTIFACT_SHA256) {
       throw new Error(
         `vendored PARG artifact checksum ${checksum} does not match the ` +
-          `pinned revision ${ARTIFACT_SHA256} — re-vendor from asciichem-parg`,
+          `pinned revision ${ARTIFACT_SHA256} — re-vendor from asciichem-grammar`,
       );
     }
     const rt = new PargRuntime(artifactJson, ENTRY);
@@ -63,7 +63,7 @@ function runtime(): PargRuntime {
       throw new Error(
         `vendored PARG artifact version ${JSON.stringify(version)} does not ` +
           `match the engine's pinned grammar ${JSON.stringify(PARG_GRAMMAR_VERSION)} ` +
-          "— re-vendor from asciichem-parg",
+          "— re-vendor from asciichem-grammar",
       );
     }
     cachedRuntime = rt;
