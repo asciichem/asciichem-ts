@@ -376,21 +376,20 @@ function parseParams(str: string | undefined): Record<string, string> {
 function buildCrystal(c: RawCapture): Crystal {
   const params = parseParams(c.params as string | undefined);
   const atoms = parseCrystalAtoms(c.body as string | undefined);
+  // The cell parameters keep the authored strings (the RS
+  // authoritative model keeps the raw captures; the wire cast is the
+  // wire layer's job).
   return new Crystal(
     nonEmpty(c.name as string | undefined),
-    numberOrNil(params["a"]),
-    numberOrNil(params["b"]),
-    numberOrNil(params["c"]),
-    numberOrNil(params["alpha"]),
-    numberOrNil(params["beta"]),
-    numberOrNil(params["gamma"]),
+    nonEmpty(params["a"]),
+    nonEmpty(params["b"]),
+    nonEmpty(params["c"]),
+    nonEmpty(params["alpha"]),
+    nonEmpty(params["beta"]),
+    nonEmpty(params["gamma"]),
     params["sg"],
     atoms,
   );
-}
-
-function numberOrNil(s: string | undefined): number | undefined {
-  return s === undefined || s === "" ? undefined : Number(s);
 }
 
 function parseCrystalAtoms(body: string | undefined): Atom[] {

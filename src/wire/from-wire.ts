@@ -6,6 +6,7 @@ import {
   Bond,
   BondKind,
   BracketKind,
+  Crystal,
   ElectronConfiguration,
   EmbeddedMath,
   Formula,
@@ -41,6 +42,7 @@ const CORE_INGEST_TYPES = new Set([
   "embedded-math",
   "text",
   "mechanism",
+  "crystal",
 ]);
 
 export function fromModelJSON(json: string | WireNode): Formula {
@@ -141,23 +143,58 @@ function fromNode(wire: AnyWire): Node {
     case "mechanism": {
       // The model keeps a step's reaction as TEXT; the wire carries the
       // typed node, so ingestion renders it back through the canonical
-      // text form.
+      // text form. The slots are typed (the v1 mechanism schema refs
+      // reaction.yaml / molecule.yaml): a cascade step has no wire
+      // form and is rejected, never flattened — the reference's exact
+      // posture.
       const formatter = new TextFormatter();
       const steps = ((wire.steps as AnyWire[] | undefined) ?? []).map((s) => {
+        const reactionWire = s.reaction as AnyWire | undefined;
+        if (reactionWire?.type !== "reaction") {
+          throw new ParseError(
+            `mechanism step reaction must be a reaction node, got ${wireTypeOf(reactionWire)}`,
+          );
+        }
         const flows = ((s.flows as AnyWire[] | undefined) ?? []).map(
           (f) => new MechanismFlow(f.source as string, f.target as string),
         );
         return new MechanismStep(
           s.label as string,
-          formatter.render(fromNode(s.reaction as AnyWire)),
+          formatter.render(fromNode(reactionWire)),
           flows,
         );
       });
-      const spectators = ((wire.spectators as AnyWire[] | undefined) ?? []).map(
-        (sp) => formatter.render(fromNode(sp)),
-      );
+      const spectators = ((wire.spectators as AnyWire[] | undefined) ?? []).map((sp) => {
+        const spectatorWire = sp as AnyWire;
+        if (spectatorWire?.type !== "molecule") {
+          throw new ParseError(
+            `mechanism spectator must be a molecule node, got ${wireTypeOf(spectatorWire)}`,
+          );
+        }
+        return formatter.render(fromNode(spectatorWire));
+      });
       return new Mechanism(steps, spectators);
     }
+    case "crystal":
+      return new Crystal(
+        optionalString(wire.name),
+        // The wire's numbers render back through the plain float text
+        // (90 -> "90", 5.64 -> "5.64") — the reference's exact cast.
+        optionalNumber(wire.a)?.toString(),
+        optionalNumber(wire.b)?.toString(),
+        optionalNumber(wire.c)?.toString(),
+        optionalNumber(wire.alpha)?.toString(),
+        optionalNumber(wire.beta)?.toString(),
+        optionalNumber(wire.gamma)?.toString(),
+        optionalString(wire.spacegroup),
+        ((wire.atoms as AnyWire[] | undefined) ?? []).map((a) => {
+          const node = fromNode(a);
+          if (!(node instanceof Atom)) {
+            throw new ParseError(`crystal atoms array carries a non-atom node: ${wireTypeOf(a)}`);
+          }
+          return node;
+        }),
+      );
     default:
       throw new ParseError(`unhandled wire type: ${wire.type}`);
   }
@@ -173,4 +210,8 @@ function optionalString(v: unknown): string | undefined {
 
 function optionalNumber(v: unknown): number | undefined {
   return typeof v === "number" ? v : undefined;
+}
+
+function wireTypeOf(wire: AnyWire | undefined): string {
+  return JSON.stringify(wire?.type ?? wire);
 }

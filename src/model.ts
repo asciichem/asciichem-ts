@@ -534,14 +534,18 @@ export class Text extends Node {
 
 export class Crystal extends Node {
   readonly type = "crystal";
+  // Cell parameters carry the AUTHORED STRINGS (the RS authoritative
+  // model keeps the raw captures so text round-trip is exact); the
+  // wire form casts them to numbers (the shared v1 crystal schema's
+  // `type: number`).
   constructor(
     readonly name?: string,
-    readonly a?: number,
-    readonly b?: number,
-    readonly c?: number,
-    readonly alpha?: number,
-    readonly beta?: number,
-    readonly gamma?: number,
+    readonly a?: string,
+    readonly b?: string,
+    readonly c?: string,
+    readonly alpha?: string,
+    readonly beta?: string,
+    readonly gamma?: string,
     readonly spacegroup?: string,
     readonly atoms: Atom[] = [],
   ) {

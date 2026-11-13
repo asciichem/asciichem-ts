@@ -160,7 +160,13 @@ export class SvgFormatter implements Visitor<string> {
     if (node instanceof Spectrum) return [seg(node.toText().split("\n")[0], 0)];
     if (node instanceof Calculation) return [seg(node.toText().split("\n")[0], 0)];
     if (node instanceof ZMatrix) return [seg(node.toText().split("\n")[0], 0)];
-    if (node instanceof Mechanism) return [seg(node.toText().split("\n")[0], 0)];
+    if (node instanceof Mechanism) {
+      // The reference renders constructs without a natural 2D form
+      // through the canonical text (Formatter.render(:text, mechanism))
+      // — the full multi-line entry set, spectators included, as with
+      // crystals (never just the first line).
+      return [seg(node.toText(), 0)];
+    }
     return [seg(node.toText(), 0)];
   }
 

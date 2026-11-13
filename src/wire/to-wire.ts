@@ -177,15 +177,34 @@ class ToWireVisitor implements Visitor<WireNode> {
   visitCrystal(node: Crystal): WireNode {
     const wire: Writable<WireCrystal> = { type: "crystal" };
     if (node.name !== undefined) wire.name = node.name;
-    if (node.a !== undefined) wire.a = node.a;
-    if (node.b !== undefined) wire.b = node.b;
-    if (node.c !== undefined) wire.c = node.c;
-    if (node.alpha !== undefined) wire.alpha = node.alpha;
-    if (node.beta !== undefined) wire.beta = node.beta;
-    if (node.gamma !== undefined) wire.gamma = node.gamma;
+    // The model's authored strings cast to the wire's numbers (the
+    // shared v1 crystal schema's `type: number`); a non-numeric
+    // capture is a malformed record, not a silent null — the same
+    // posture as the reference wire adapter.
+    const cell = (value: string | undefined): number | undefined => {
+      if (value === undefined) return undefined;
+      const trimmed = value.trim();
+      const parsed = Number(trimmed);
+      if (trimmed === "" || Number.isNaN(parsed)) {
+        throw new ParseError(`crystal cell param ${JSON.stringify(value)} is not a number`);
+      }
+      return parsed;
+    };
+    const a = cell(node.a);
+    if (a !== undefined) wire.a = a;
+    const b = cell(node.b);
+    if (b !== undefined) wire.b = b;
+    const c = cell(node.c);
+    if (c !== undefined) wire.c = c;
+    const alpha = cell(node.alpha);
+    if (alpha !== undefined) wire.alpha = alpha;
+    const beta = cell(node.beta);
+    if (beta !== undefined) wire.beta = beta;
+    const gamma = cell(node.gamma);
+    if (gamma !== undefined) wire.gamma = gamma;
     if (node.spacegroup !== undefined) wire.spacegroup = node.spacegroup;
     if (node.atoms.length > 0) {
-      wire.atoms = node.atoms.map((a) => a.toModelJSON() as WireAtom);
+      wire.atoms = node.atoms.map((atom) => atom.toModelJSON() as WireAtom);
     }
     return wire;
   }

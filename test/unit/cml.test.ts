@@ -11,13 +11,11 @@ import {
   initCml,
   parseCmlToFormula,
   formulaToCml,
-  toCml,
-  parseCml,
   CmlError,
   ACI_NAMESPACE,
 } from "../../src/cml.js";
 import { parseText } from "../../src/parser.js";
-import { Molecule } from "../../src/model.js";
+import { Molecule, Reaction } from "../../src/model.js";
 
 beforeAll(async () => {
   await initCml();
@@ -51,6 +49,10 @@ const ROUND_TRIP_INPUTS = [
   "Ca((OH)_2)",
   "`a < b && c > d`",
   "C1-C-C-C-C-C1",
+  // The mechanism channel (aci:mechanism): canonical text render,
+  // re-parsed on read — gated here beyond the corpus family.
+  "mechanism{\n  s1: A-B -> A + B | flow: A-B > A; B > B-C\n  s2: A + C -> A-C\n}",
+  "mechanism{\n  s1: A -> B | flow: A > B\n  spectator: Na^+\n}",
 ];
 
 describe("CML three-way round-trip", () => {
@@ -131,20 +133,97 @@ describe("CML read face", () => {
   });
 });
 
-describe("CML emit-side unsupported posture", () => {
-  it("reports constructs with no wire representation, never drops them", () => {
-    expect(() => toCml(parseText("crystal[x](a=1)").nodes)).toThrow(CmlError);
-    expect(() => toCml(parseText("crystal[x](a=1)").nodes)).toThrow(/no CML wire representation/);
-    expect(() => toCml(parseText("spectrum[ir]").nodes)).toThrow(CmlError);
-    expect(() => toCml(parseText("zmatrix").nodes)).toThrow(CmlError);
-    expect(() => toCml(parseText("calc(b3lyp)").nodes)).toThrow(CmlError);
-    expect(() => toCml(parseText("H_2O ->[heat] H_2O").nodes)).toThrow(/reaction conditions/);
+describe("CML aci: top-level channels (crystal/spectrum/calculation/zmatrix)", () => {
+  // The beyond-formulas constructs ride the same text-round-trip
+  // channel the mechanism uses: canonical text render inside an
+  // aci:<name> element, re-parsed on read (the reference TopLevel
+  // channel's contract — the Text formatter is the canonicaliser).
+  const CHANNEL_INPUTS = [
+    "crystal[NaCl](a=5.64,b=5.64,c=5.64,alpha=90,beta=90,gamma=90,sg=Fm-3m){Na@f(0,0,0) Cl@f(0.5,0.5,0.5)}",
+    "crystal[x](a=-1){Na@f(0,0,0)}",
+    "spectrum[1H](solvent=CDCl3){\n  7.26: 1 s \"CHCl3\"\n}",
+    "calc(B3LYP/6-31G*){\n  energy: -76.0 Hartree\n}",
+    "zmatrix{\n  O\n  H  1  0.96\n  H  1  0.96  2  104.5\n}",
+  ];
+
+  for (const input of CHANNEL_INPUTS) {
+    it(`${input.slice(0, 40)}... round-trips through its channel`, () => {
+      const cml = parseText(input).toCml();
+      expect(cml).toContain(`xmlns:aci="${ACI_NAMESPACE}"`);
+      expect(parseCmlToFormula(cml).toText()).toBe(input);
+    });
+  }
+
+  it("carries the crystal under aci:crystal with its position", () => {
+    const input = "crystal[NaCl](a=5.64) H_2O";
+    const cml = parseText(input).toCml();
+    expect(cml).toContain('<aci:crystal position="0">');
+    expect(parseCmlToFormula(cml).toText()).toBe(input);
   });
 
-  it("reports bare atoms outside a molecule", () => {
-    // The parser wraps bare atom spelling in molecules, so this shape
-    // only arises from direct construction — the visitor-level guard.
+  it("keeps mixed top-level channels in node order", () => {
+    const input = "crystal[x](a=1) 1s^2 2s^2 calc(b3lyp) H_2O";
+    const cml = parseText(input).toCml();
+    expect(cml).toContain('<aci:crystal position="0">');
+    expect(cml).toContain('<aci:calculation position="2">');
+    expect(parseCmlToFormula(cml).toText()).toBe(input);
+  });
+
+  it("reports constructs with neither wire representation nor channel, never drops them", () => {
+    // Bare atoms outside a molecule stay unsupported (the parser wraps
+    // bare atom spelling in molecules, so this shape only arises from
+    // direct construction — the visitor-level guard).
     expect(() => formulaToCml(parseText("H_2O"))).not.toThrow();
+  });
+});
+
+describe("CML reaction-conditions channel (native conditionList)", () => {
+  it("emits the reference conditionList shape (scalars by title)", () => {
+    const input = "H_2 + O_2 ->[Fe][400C] H_2O";
+    const cml = parseText(input).toCml();
+    expect(cml).toContain(
+      "<conditionList><scalar title=\"above\">Fe</scalar><scalar title=\"below\">400C</scalar></conditionList>",
+    );
+    expect(parseCmlToFormula(cml).toText()).toBe(input);
+  });
+
+  it("round-trips only-above conditions", () => {
+    const input = "A ->[cat: Pd] B";
+    const cml = parseText(input).toCml();
+    expect(cml).toContain('<scalar title="above">cat: Pd</scalar>');
+    expect(parseCmlToFormula(cml).toText()).toBe(input);
+  });
+
+  it("round-trips conditions through reaction cascades", () => {
+    const input = "A ->[c1] B ->[c2] C";
+    const cml = parseText(input).toCml();
+    expect(parseCmlToFormula(cml).toText()).toBe(input);
+  });
+
+  it("emits no conditionList for reactions without conditions", () => {
+    const cml = parseText("H_2 + O_2 -> H_2O").toCml();
+    expect(cml).not.toContain("conditionList");
+    expect(parseCmlToFormula(cml).toText()).toBe("H_2 + O_2 -> H_2O");
+  });
+
+  it("reads the legacy aci: attribute channel for backwards compatibility", () => {
+    const xml =
+      `<cml xmlns="http://www.xml-cml.org/schema" xmlns:aci="${ACI_NAMESPACE}">` +
+      '<reaction id="r1" type="forward" aci:conditionsAbove="Pt" aci:conditionsBelow="80C">' +
+      "<reactantList/><productList/></reaction></cml>";
+    const formula = parseCmlToFormula(xml);
+    const reaction = formula.nodes[0] as Reaction;
+    expect(reaction.conditions?.above).toBe("Pt");
+    expect(reaction.conditions?.below).toBe("80C");
+  });
+
+  it("prefers the native conditionList over legacy attributes", () => {
+    const xml =
+      '<cml xmlns="http://www.xml-cml.org/schema">' +
+      '<reaction id="r1" type="forward"><reactantList/><productList/>' +
+      '<conditionList><scalar title="above">native</scalar></conditionList></reaction></cml>';
+    const reaction = parseCmlToFormula(xml).nodes[0] as Reaction;
+    expect(reaction.conditions?.above).toBe("native");
   });
 });
 
