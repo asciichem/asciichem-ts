@@ -38,7 +38,7 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/asciichem/asciichem-rs.git /tmp/asciichem-rs
           diff src/parg/asciichem.json /tmp/asciichem-rs/artifacts/asciichem.json \
-            || (echo "src/parg/asciichem.json drifted from the asciichem-parg contract (artifacts/asciichem.json) — re-vendor"; exit 1)
+            || (echo "src/parg/asciichem.json drifted from the asciichem-grammar contract (artifacts/asciichem.json) — re-vendor"; exit 1)
       - run: npm test
 
   # The default job above runs the NO-ENGINE posture: the linter's
