@@ -22,25 +22,35 @@
 //
 // The aci: extension namespace carries what CML's standard wire does
 // not (oxidation state, Lewis markers, electron configuration, embedded
-// math, free-form text, group structure) — three channels, one per
-// scope:
+// math, free-form text, mechanism, crystal, spectrum, z-matrix,
+// calculation, group structure) — three channels, one per scope:
 //
 // - **Atom attributes** — `aci:<wire_name>` attributes on `<atom>`
 //   (`oxidationState`, `lonePairs`, `radicalElectrons`, `ringClosures`).
 // - **Top-level elements** — `<aci:<name> position="N">text</…>`
 //   children of `<cml>` (ElectronConfiguration, EmbeddedMath, Text,
-//   Mechanism); `position` preserves formula node order.
+//   Mechanism, Crystal, Spectrum, Calculation, ZMatrix); `position`
+//   preserves formula node order. The wire format for each is the
+//   canonical text render — round-trip-safe by construction (the Text
+//   formatter is the canonicaliser), the reference TopLevel channel's
+//   exact contract.
 // - **Molecule groups** — `<aci:group multiplicity="N" bracket="X"
 //   atomRefs="a1 a2"/>` children of `<molecule>`.
 //
-// The `xmlns:aci` declaration appears only when at least one extension
-// is present. Constructs with no wire representation and no channel
-// (Crystal, Spectrum, ZMatrix, Calculation, reaction conditions,
-// molecule annotations) report CmlError rather than dropping silently.
+// Reaction conditions ride the core wire natively: `<conditionList>`
+// with `<scalar title="above|below">` (the reference adapter's v0.11.0+
+// emission), read back by scalar title; the legacy
+// `aci:conditionsAbove`/`aci:conditionsBelow` attributes are read for
+// backwards compatibility. The `xmlns:aci` declaration appears only
+// when at least one extension is present. Constructs with neither wire
+// representation nor channel (molecule annotations) report CmlError
+// rather than dropping silently.
 import {
   Atom,
   Bond,
   BracketKind,
+  Calculation,
+  Crystal,
   ElectronConfiguration,
   EmbeddedMath,
   Formula,
@@ -50,7 +60,10 @@ import {
   Node,
   Reaction,
   ReactionCascade,
+  ReactionConditions,
+  Spectrum,
   Text,
+  ZMatrix,
 } from "./model.js";
 import { AsciiChemError } from "./errors.js";
 import { parseText } from "./parser.js";
@@ -98,8 +111,18 @@ const ATOM_FIELDS: readonly (readonly [AtomExtensionField, string])[] = [
   ["ringClosures", "ringClosures"],
 ];
 
-// Top-level channel element names.
-const TOP_LEVEL_ELEMENTS = ["electronConfiguration", "embeddedMath", "text", "mechanism"];
+// Top-level channel element names (the reference TopLevel::HANDLERS
+// element_name set).
+const TOP_LEVEL_ELEMENTS = [
+  "electronConfiguration",
+  "embeddedMath",
+  "text",
+  "mechanism",
+  "crystal",
+  "spectrum",
+  "calculation",
+  "zmatrix",
+];
 
 // Group brackets on the wire (the model stores the same names).
 const BRACKETS: readonly BracketKind[] = ["paren", "square", "brace"];
@@ -281,6 +304,10 @@ function topLevelPayload(node: Node): { element: string; content: string } {
   if (node instanceof ElectronConfiguration) return { element: "electronConfiguration", content: node.toText() };
   if (node instanceof EmbeddedMath) return { element: "embeddedMath", content: node.source };
   if (node instanceof Mechanism) return { element: "mechanism", content: node.toText() };
+  if (node instanceof Crystal) return { element: "crystal", content: node.toText() };
+  if (node instanceof Spectrum) return { element: "spectrum", content: node.toText() };
+  if (node instanceof Calculation) return { element: "calculation", content: node.toText() };
+  if (node instanceof ZMatrix) return { element: "zmatrix", content: node.toText() };
   if (node instanceof Text) return { element: "text", content: `"${node.content}"` };
   throw new CmlError(`construct has no CML wire representation: ${node.diagnosticLabel()}`);
 }
@@ -503,12 +530,6 @@ function emitReaction(
   ids: Ids,
   reaction: Reaction,
 ): { element: number; extensions: boolean } {
-  if (reaction.conditions?.above !== undefined || reaction.conditions?.below !== undefined) {
-    // The conditions channel (aci:condition, like the reference's
-    // ConditionsExtensions) is not in this slice — report rather than
-    // drop (the remaining surface mirrors asciichem-rs#15).
-    throw new CmlError("construct has no CML wire representation: reaction conditions");
-  }
   const element = leptris.createElementSync(documentId, "reaction");
   leptris.setAttributeSync(element, "id", ids.nextReaction());
   leptris.setAttributeSync(element, "title", reaction.arrow);
@@ -524,7 +545,32 @@ function emitReaction(
     extensions = emitParticipant(documentId, ids, productList, "product", molecule) || extensions;
   }
   leptris.appendChildSync(element, productList);
+  // The conditions channel rides the core wire natively (the
+  // reference adapter's emission): `<conditionList>` with
+  // `<scalar title="above|below">` children, in above-then-below
+  // order. A reaction without conditions emits no conditionList.
+  const conditions = reaction.conditions;
+  if (conditions?.above !== undefined || conditions?.below !== undefined) {
+    leptris.appendChildSync(element, emitConditionList(documentId, conditions));
+  }
   return { element, extensions };
+}
+
+// `<conditionList><scalar title="above">…</scalar>…</conditionList>` —
+// the reference's build_condition_list shape.
+function emitConditionList(documentId: number, conditions: ReactionConditions): number {
+  const list = leptris.createElementSync(documentId, "conditionList");
+  for (const [title, value] of [
+    ["above", conditions.above],
+    ["below", conditions.below],
+  ] as const) {
+    if (value === undefined) continue;
+    const scalar = leptris.createElementSync(documentId, "scalar");
+    leptris.setAttributeSync(scalar, "title", title);
+    leptris.appendChildSync(scalar, leptris.createTextSync(documentId, value));
+    leptris.appendChildSync(list, scalar);
+  }
+  return list;
 }
 
 function emitParticipant(
@@ -931,6 +977,7 @@ function readReaction(element: XNode, prefix: string): Reaction {
     : "forward";
   const reactants: Molecule[] = [];
   const products: Molecule[] = [];
+  let conditions: ReactionConditions | undefined;
   for (const childNode of element.children) {
     if (!isCore(childNode)) continue;
     switch (childNode.localName) {
@@ -944,11 +991,39 @@ function readReaction(element: XNode, prefix: string): Reaction {
           products.push(readParticipant(participant, prefix));
         }
         break;
+      case "conditionList":
+        conditions = readConditionList(childNode);
+        break;
       default:
         break;
     }
   }
-  return new Reaction(reactants, products, arrow);
+  // Legacy fallback: the pre-0.11.0 `aci:conditionsAbove`/`Below`
+  // attributes (the reference's ConditionsExtensions.extract). The
+  // native conditionList wins when both ride the wire.
+  if (conditions === undefined) {
+    const above = attrAci(element, prefix, "conditionsAbove");
+    const below = attrAci(element, prefix, "conditionsBelow");
+    if (above !== undefined || below !== undefined) {
+      conditions = new ReactionConditions(above, below);
+    }
+  }
+  return new Reaction(reactants, products, arrow, conditions);
+}
+
+// `<scalar title="above|below">text</scalar>` children (the reference's
+// conditions_from_canonical): scalars are matched by title; unknown
+// titles are skipped.
+function readConditionList(element: XNode): ReactionConditions | undefined {
+  let above: string | undefined;
+  let below: string | undefined;
+  for (const scalar of childrenNamed(element, "scalar")) {
+    const title = attr(scalar, "title");
+    if (title === "above" && above === undefined) above = scalar.text;
+    if (title === "below" && below === undefined) below = scalar.text;
+  }
+  if (above === undefined && below === undefined) return undefined;
+  return new ReactionConditions(above, below);
 }
 
 function readParticipant(element: XNode, prefix: string): Molecule {

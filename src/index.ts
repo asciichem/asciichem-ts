@@ -62,6 +62,12 @@ export {
 export * as Perception from "./perception.js";
 export { parseText };
 export {
+  mechanismGraph,
+  type MechanismGraphStep,
+  type MechanismGraphLink,
+  type MechanismStepGraph,
+} from "./mechanism-graph.js";
+export {
   EngineMissingError as InchiEngineMissingError,
   identityFor as inchiIdentityFor,
   setInchiEngine,

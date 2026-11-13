@@ -269,21 +269,25 @@ function totalCharge(molecules: readonly Molecule[]): number | null {
 
 // Validates unit-cell parameters on a Crystal node: lengths positive,
 // angles in (0, 180], fractional coordinates in [0, 1). Each cell
-// parameter is optional — missing values are skipped, not flagged.
+// parameter is optional — missing values are skipped, not flagged,
+// and non-numeric captures are skipped too (the reference's
+// `Float(value, exception: false)`; the model keeps authored strings).
 const crystalSanityCheck: LintCheck = (formula) => {
   const diagnostics: Diagnostic[] = [];
   for (const node of walkNodes(formula)) {
     if (!(node instanceof Crystal)) continue;
     for (const dim of ["a", "b", "c"] as const) {
       const value = node[dim];
-      if (value === undefined) continue;
-      if (value > 0) continue;
+      const number = numericCell(value);
+      if (number === undefined) continue;
+      if (number > 0) continue;
       diagnostics.push(lintError(`Crystal ${dim} must be positive, got ${value}`, node));
     }
     for (const dim of ["alpha", "beta", "gamma"] as const) {
       const value = node[dim];
-      if (value === undefined) continue;
-      if (value > 0 && value <= 180) continue;
+      const number = numericCell(value);
+      if (number === undefined) continue;
+      if (number > 0 && number <= 180) continue;
       diagnostics.push(lintError(`Crystal ${dim} must be in (0, 180], got ${value}`, node));
     }
     for (const atom of node.atoms) {
@@ -302,6 +306,14 @@ const crystalSanityCheck: LintCheck = (formula) => {
   }
   return diagnostics;
 };
+
+// The reference's `Float(value, exception: false)`: a numeric string
+// parses, anything else skips the check.
+function numericCell(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value.trim());
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
 
 // -- element validation -------------------------------------------------------
 
