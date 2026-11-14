@@ -113,7 +113,8 @@ schemas:
 | L2 (MathML goldens) | 100% — byte-identical against the corpus goldens |
 | identifiers | 100% — the offline validator agrees with every `valid` marker |
 | L4 (linter) | 100% — diagnostics match every expectation; the `inchi-posture` CI job installs the chemomer wasm engine and runs the engine-`inchi` cases, while the default job runs the no-engine posture (a posture, not a failure) |
-| CML | 100% — three-way round-trip (`parse → toCml → parse → toText === input`) for every `cml-roundtrip` fixture, through the leptris engine |
+| CML | 100% — three-way round-trip (`parse → toCml → parse → toText === input`) for every `cml-roundtrip` fixture, through the leptris engine; the `aci:` channels carry crystal/spectrum/calculation/zmatrix/mechanism and reaction conditions |
+| mechanism flows | 100% — every `mechanisms.json` fixture's per-step electron-flow markers, keyed by step label |
 | resolver | 100% — every replay case: exact request URL + adapter-declared headers, the substance wire record with pinned provenance, cache markers (TTL, `sha256(source:convention:value)`, serves-offline), per-source failure isolation |
 | citation | 100% — every golden bibitem byte-equal, built and serialized through the leptris engine |
 | CLI | 100% — the corpus's offline command set (`convert`/`roundtrip`/`lint`/`validate`/`parse-cml`/`version`/`tree`) dispatched in-process: exit codes, stdout bytes, JSON payloads, and the `{version}` placeholder |
