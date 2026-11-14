@@ -30,13 +30,13 @@ import { ParseError } from "../errors.js";
 // Version the vendored artifact was built from; load fails loudly on
 // drift so the engine never runs a stale grammar (mirrors
 // PargEngine::PARG_GRAMMAR_VERSION in asciichem-ruby).
-const PARG_GRAMMAR_VERSION = "0.4.0";
+const PARG_GRAMMAR_VERSION = "0.5.0";
 
 // SHA-256 of the vendored artifact bytes — pins the vendored revision
 // byte-exactly (parsanol's own checksum verifies the artifact's
 // grammar-source integrity; this pins the vendored copy).
 const ARTIFACT_SHA256 =
-  "b5c1f5289f0487e974091e451f5b2703c12c861347c09dd8332bdcfd1822c34f";
+  "859aa70b55ae39646d1aebcc64e53136786597f734f48d84517dd6c53effbee8";
 
 const ENTRY = "formula";
 

@@ -149,7 +149,7 @@ describe("linter", () => {
     });
 
     it("skips conventions without a validator silently", () => {
-      expect(lint("C @iupac(\"methane\")")).toEqual([]);
+      expect(lint("C @chebi(\"CHEBI:16183\")")).toEqual([]);
     });
   });
 
