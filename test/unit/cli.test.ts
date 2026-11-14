@@ -182,7 +182,7 @@ describe("validate", () => {
   });
 
   it("never exits non-zero on unknown conventions", async () => {
-    const cli = run(["validate", "-i", 'H_2O @iupac("water")']);
+    const cli = run(["validate", "-i", 'H_2O @chebi("CHEBI:16183")']);
     expect(await cli.code()).toBe(0);
     expect(cli.stdout()).toContain("unknown convention");
   });
