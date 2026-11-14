@@ -4,7 +4,8 @@
 //   L0 emission + schema validation, L1 Text round-trip, L2 MathML
 //   golden, SMILES + molfile ingestion, the identifier validators, L4
 //   linter diagnostics (engine-postured), the CML round-trip family,
-//   and the parity families: resolver replay, citation bytes, and the
+//   the rinchi reaction-identity oracle (engine-postured), and the
+//   parity families: resolver replay, citation bytes, and the
 //   CLI (the offline command set, dispatched in-process).
 //
 // Family selection mirrors the reference runner: each fixture belongs
@@ -26,7 +27,7 @@ import { runLinter, type Diagnostic } from "../../src/linter.js";
 import { inchiEngine } from "../../src/inchi.js";
 import { initCml, parseCmlToFormula } from "../../src/cml.js";
 import { runCli } from "../../src/cli.js";
-import { chemomerAvailable, registerChemomerEngine } from "../../src/inchi-chemomer.js";
+import { chemomerAvailable, registerChemomerEngine, rinchiChemomer, type RinchiSurface } from "../../src/inchi-chemomer.js";
 import {
   ResolverRegistry,
   PubChemAdapter,
@@ -95,6 +96,16 @@ interface Fixture {
   stdoutIncludes?: string[];
   stdoutJson?: unknown;
   stderrIncludes?: string[];
+  // rinchi family
+  rinchi?: string;
+  rauxinfo?: string;
+  rinchikey?: string;
+  longKey?: string;
+  webKey?: string;
+  rxnfile?: string;
+  rdfile?: string;
+  forceEquilibrium?: boolean;
+  components?: { reactants: string[]; products: string[]; agents: string[] };
   [key: string]: unknown;
 }
 
@@ -119,10 +130,11 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
 
   // Family selection (the reference runner's exact split): parser
   // cases (input, minus the families owning their keys), the
-  // identifier validators, L4 lint, the CML round-trip family, and the
-  // parity families (resolver, citation, CLI), plus the structure
-  // families (SMILES, molfile, perception — the last also gated in
-  // detail by perception.test.ts).
+  // identifier validators, L4 lint, the CML round-trip family, the
+  // rinchi reaction-identity oracle, and the parity families
+  // (resolver, citation, CLI), plus the structure families (SMILES,
+  // molfile, perception — the last also gated in detail by
+  // perception.test.ts).
   const parserCases = fixtures.filter(
     (f) =>
       typeof f.input === "string" &&
@@ -143,6 +155,7 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   const perceptionCases = fixtures.filter((f) => f.perception !== undefined);
   const smilesCases = fixtures.filter((f) => typeof f.smiles === "string" && f.perception === undefined);
   const molfileCases = fixtures.filter((f) => typeof f.molfile === "string");
+  const rinchiCases = fixtures.filter((f) => typeof f.rinchi === "string");
 
   it("has fixtures to run", () => {
     expect(fixtures.length).toBeGreaterThan(200);
@@ -160,6 +173,7 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
       perceptionCases,
       smilesCases,
       molfileCases,
+      rinchiCases,
     ];
     const total = families.reduce((sum, list) => sum + list.length, 0);
     expect(total, "unclassified fixtures exist").toBe(fixtures.length);
@@ -609,5 +623,179 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
         expect(parseCmlToFormula(cml).toText(), fixture.id).toBe(input);
       });
     }
+  });
+
+  // The rinchi family: the reaction-identity oracle over the recorded
+  // bytes. Engine-postured like the linter family — this family needs
+  // an engine that ships the reaction-identity surface (the chemomer
+  // wasm extra, 1.1.0+); the no-engine posture skips the whole family
+  // with a visible report (a missing engine is a posture, not a
+  // failure). Two directions per case, per the runner contract:
+  // derive — the input edge (RXNfile xor RDfile) assembles the five
+  // oracle lines byte-identically (keys re-stripped of their
+  // `Short/Long/Web-RInChIKey=` headers; the RD edge exports the
+  // identifier line only, the other four riding the RXN exports'
+  // assembly under the engine's own gate); decode — the identifier
+  // (+ RAuxInfo companion) reads back into the role-resolved
+  // components, in role order for the directional readings (the
+  // direction flag recovers the real roles), order-free for the
+  // forced-equilibrium ones (an equilibrium is symmetric — either
+  // group may output first), the flag pinning the reading itself.
+  // The forced-equilibrium readings additionally skip the derive
+  // comparison and report: the oracle recorded them under the forced
+  // flag, for which the wasm surface carries no entry (their RXNfiles
+  // parse directional) — the decode direction still gates every case.
+  describe("rinchi family (the reaction-identity oracle)", () => {
+    const posture: "none" | "inchi" = chemomerAvailable() ? "inchi" : "none";
+    let engine: RinchiSurface | null = null;
+    beforeAll(async () => {
+      if (posture === "inchi") engine = await rinchiChemomer();
+    });
+
+    // The forced-equilibrium readings derive under the oracle's
+    // forced flag; the natural-directional wasm derive cannot
+    // reproduce those bytes, so their derive comparisons skip and are
+    // reported (the reference rs gate, with its model API, owns them).
+    const deriveSkipped = rinchiCases
+      .filter((f) => f.forceEquilibrium)
+      .map((f) => f.id);
+    // The posture skip is part of the report, never silent: in the
+    // no-engine posture the whole family is listed here, and the list
+    // changes only when the corpus's rinchi family changes.
+    const postureSkipped = posture === "none" ? rinchiCases.map((f) => f.id) : [];
+
+    // The component table's wire form (the engine's documented decode
+    // output): the direction-flag line, TAB-separated
+    // `inchi<TAB>aux<TAB>key` triples grouped by bare `<>` role
+    // separators (reactants, products, agents), trailing newline.
+    interface ComponentTriple {
+      inchi: string;
+      aux: string;
+      inchikey: string;
+    }
+    const parseComponentTable = (
+      table: string,
+    ): { flag: string; reactants: ComponentTriple[]; products: ComponentTriple[]; agents: ComponentTriple[] } => {
+      const lines = table.split("\n");
+      if (lines.at(-1) === "") lines.pop();
+      const flag = lines.shift() ?? "";
+      const roles = { reactants: [], products: [], agents: [] } as Record<
+        "reactants" | "products" | "agents",
+        ComponentTriple[]
+      >;
+      const roleOrder: ("reactants" | "products" | "agents")[] = ["reactants", "products", "agents"];
+      let role = 0;
+      for (const line of lines) {
+        if (line === "<>") {
+          role += 1;
+          continue;
+        }
+        if (role >= roleOrder.length) throw new Error("component table carries too many role separators");
+        const [inchi, aux, inchikey] = line.split("\t");
+        roles[roleOrder[role]].push({ inchi: inchi ?? "", aux: aux ?? "", inchikey: inchikey ?? "" });
+      }
+      return { flag, ...roles };
+    };
+
+    // Strips a key line's header for the corpus's headerless
+    // comparison (the keys ride the engine's output headered).
+    const stripKeyHeader = (line: string, header: string): string =>
+      line.startsWith(header) ? line.slice(header.length) : line;
+
+    for (const fixture of rinchiCases) {
+      it.runIf(posture === "inchi")(fixture.id, () => {
+        const rinchi = engine as RinchiSurface;
+
+        // The decode direction — every case runs it. The identifier
+        // (+ companion) reads back into the component table.
+        const decoded = parseComponentTable(
+          rinchi.rinchiDecode(fixture.rinchi as string, fixture.rauxinfo ?? ""),
+        );
+        expect(decoded.flag, `${fixture.id}: direction flag`).toBe(
+          fixture.forceEquilibrium ? "=" : "+",
+        );
+        if (fixture.forceEquilibrium) {
+          // Symmetric: the components compare order-free across the
+          // three roles (the flag above pins the reading itself).
+          const expected = [
+            ...(fixture.components?.reactants ?? []),
+            ...(fixture.components?.products ?? []),
+            ...(fixture.components?.agents ?? []),
+          ].sort();
+          const actual = [
+            ...decoded.reactants,
+            ...decoded.products,
+            ...decoded.agents,
+          ]
+            .map((component) => component.inchi)
+            .sort();
+          expect(actual, `${fixture.id}: decoded components`).toEqual(expected);
+        } else {
+          // The direction flag recovers the real roles for the
+          // directional readings — roles compare in wire order.
+          expect(
+            decoded.reactants.map((component) => component.inchi),
+            `${fixture.id}: decoded reactants`,
+          ).toEqual(fixture.components?.reactants ?? []);
+          expect(
+            decoded.products.map((component) => component.inchi),
+            `${fixture.id}: decoded products`,
+          ).toEqual(fixture.components?.products ?? []);
+          expect(
+            decoded.agents.map((component) => component.inchi),
+            `${fixture.id}: decoded agents`,
+          ).toEqual(fixture.components?.agents ?? []);
+        }
+
+        // The derive direction: the input edge assembles the oracle
+        // lines byte-identically.
+        if (fixture.forceEquilibrium) {
+          // Reported in the family's derive-skip report below.
+          return;
+        }
+        const actual: Record<string, string> =
+          fixture.rxnfile !== undefined
+            ? {
+                rinchi: rinchi.rinchiFromRxn(fixture.rxnfile),
+                rauxinfo: rinchi.rinchiAuxFromRxn(fixture.rxnfile),
+                rinchikey: stripKeyHeader(
+                  rinchi.rinchiShortKeyFromRxn(fixture.rxnfile),
+                  "Short-RInChIKey=",
+                ),
+                longKey: stripKeyHeader(
+                  rinchi.rinchiLongKeyFromRxn(fixture.rxnfile),
+                  "Long-RInChIKey=",
+                ),
+                webKey: stripKeyHeader(
+                  rinchi.rinchiWebKeyFromRxn(fixture.rxnfile),
+                  "Web-RInChIKey=",
+                ),
+              }
+            : {
+                // The RD edge exports the identifier line only; the
+                // other four lines ride the RXN exports' assembly, and
+                // the engine's own gate owns their full per-line
+                // comparison.
+                rinchi: rinchi.rinchiFromRd(fixture.rdfile as string),
+              };
+        for (const [field, value] of Object.entries(actual)) {
+          expect(value, `${fixture.id}: derive ${field}`).toBe(fixture[field]);
+        }
+      });
+    }
+
+    it("reports the posture-skipped family", () => {
+      expect(postureSkipped, "the skipped rinchi cases").toEqual(
+        posture === "none" ? rinchiCases.map((f) => f.id) : [],
+      );
+      if (posture === "none") {
+        expect(postureSkipped.length, "the corpus carries rinchi cases").toBeGreaterThan(0);
+      }
+    });
+
+    it("reports the derive-skipped cases (forced equilibrium rides decode)", () => {
+      expect(deriveSkipped).toEqual(rinchiCases.filter((f) => f.forceEquilibrium).map((f) => f.id));
+      expect(deriveSkipped.length, "the corpus carries forced-equilibrium readings").toBeGreaterThan(0);
+    });
   });
 });

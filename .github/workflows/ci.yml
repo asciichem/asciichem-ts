@@ -43,12 +43,14 @@ jobs:
 
   # The default job above runs the NO-ENGINE posture: the linter's
   # identity cross-check skips with a reported warning, and the
-  # corpus's engine:"none" cases run. This job flips the posture: with
-  # the chemomer wasm engine installed (the optional engine extra —
-  # never a hard dependency), the engine:"inchi" identity cases run
-  # instead. Together the two jobs cover every linter-expectations
-  # case (the runner contract: engine posture is implementation
-  # configuration, not a failure). Mirrors the PY repo's two-job shape.
+  # corpus's engine:"none" cases run; the rinchi reaction-identity
+  # family skips with a visible report. This job flips the posture:
+  # with the chemomer wasm engine installed (the optional engine extra
+  # — never a hard dependency), the engine:"inchi" identity cases run
+  # instead and the rinchi family runs all 36 cases. Together the two
+  # jobs cover every engine-postured case (the runner contract: engine
+  # posture is implementation configuration, not a failure). Mirrors
+  # the PY repo's two-job shape.
   inchi-posture:
     runs-on: ubuntu-latest
     steps:
@@ -63,6 +65,9 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install the chemomer wasm engine extra (never saved — optional by contract)
-        run: npm install --no-save chemomer@^0.1.3
+        # ^1.1.0: the reaction-identity surface (the corpus's rinchi
+        # family) ships in chemomer 1.1.0; the 0.1.x line carries
+        # identities only.
+        run: npm install --no-save chemomer@^1.1.0
       - run: npm run typecheck
       - run: npm test
