@@ -44,6 +44,6 @@
   },
   "dependencies": {
     "leptris": "^0.1.53",
-    "parsanol": "^0.10.48"
+    "parsanol": "^1.5.0"
   }
 }
