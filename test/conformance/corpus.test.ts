@@ -67,6 +67,7 @@ interface Fixture {
   roundTrip?: boolean;
   smilesRoundTrip?: boolean;
   canonicalSmiles?: string;
+  inchi?: string;
   molfileRoundTrip?: boolean;
   cmlRoundTrip?: boolean;
   mathml?: string;
@@ -233,6 +234,35 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
         }
       });
     }
+  });
+
+  // The recorded identity intersection (asciichem-tests#29): the
+  // engine derives exactly the recorded InChI. Engine-postured like
+  // the L4 family — the chemomer extra is never a hard dependency,
+  // and cases carry no column outside the recorded intersection.
+  describe("SMILES recorded identity", () => {
+    const identityCases = smilesCases.filter((f) => typeof f.inchi === "string");
+    const posture: "none" | "inchi" = chemomerAvailable() ? "inchi" : "none";
+    beforeAll(async () => {
+      if (posture === "inchi") await registerChemomerEngine();
+    });
+
+    for (const fixture of identityCases) {
+      it.runIf(posture === "inchi")(fixture.id, () => {
+        const formula = parseSmiles(fixture.smiles as string);
+        const molecule = formula.nodes[0];
+        expect(molecule, `${fixture.id}: no molecule component`).toBeDefined();
+        expect(inchiEngine(), `${fixture.id}: engine not registered`).not.toBeNull();
+        expect(inchiEngine()!.identity(molecule!).inchi, fixture.id).toBe(fixture.inchi);
+      });
+    }
+
+    it("reports the posture", () => {
+      // The skip is the report: in the none posture every recorded
+      // case skips; the recorded intersection changes only when the
+      // recording re-runs (26 recorded cases today).
+      expect(identityCases.length).toBeGreaterThanOrEqual(26);
+    });
   });
 
   describe("molfile ingestion", () => {
