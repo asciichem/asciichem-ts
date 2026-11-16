@@ -258,10 +258,15 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
     }
 
     it("reports the posture", () => {
-      // The skip is the report: in the none posture every recorded
-      // case skips; the recorded intersection changes only when the
-      // recording re-runs (26 recorded cases today).
-      expect(identityCases.length).toBeGreaterThanOrEqual(26);
+      // The skip is the report: the recorded intersection is whatever
+      // the pinned corpus carries (it grows when the recording
+      // re-runs), and every case in it runs exactly in the inchi
+      // posture.
+      expect(identityCases.length).toBe(
+        fixtures.filter(
+          (f) => typeof f.smiles === "string" && typeof f.inchi === "string" && f.perception === undefined,
+        ).length,
+      );
     });
   });
 
