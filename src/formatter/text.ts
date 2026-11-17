@@ -22,8 +22,14 @@ import {
   ZMatrix,
   registerRenderer,
 } from "../model.js";
+import { bondKinds, type KekuleKind } from "../kekule.js";
 
 export class TextFormatter implements Visitor<string> {
+  // Aromatic bonds render as their Kekulé projection when the ring
+  // admits one (kekule.ts); odd rings keep the aromatic glyph (the
+  // spec'd text loss, #188). Saved/restored per molecule visit.
+  private kekule = new Map<Bond, KekuleKind>();
+
   visitFormula(formula: Formula): string {
     return formula.nodes.map((n) => this.render(n)).join(" ");
   }
@@ -31,7 +37,10 @@ export class TextFormatter implements Visitor<string> {
   visitMolecule(molecule: Molecule): string {
     const prefix = molecule.coefficient ?? "";
     const stereo = molecule.stereo ? `(${molecule.stereoLetter})-` : "";
+    const previous = this.kekule;
+    this.kekule = bondKinds(molecule);
     const body = molecule.nodes.map((n) => this.render(n)).join("");
+    this.kekule = previous;
     return `${stereo}${prefix}${body}${this.moleculeAnnotations(molecule)}`;
   }
 
@@ -93,6 +102,8 @@ export class TextFormatter implements Visitor<string> {
     // plain dash (text re-parses to the same model).
     if (bond.direction === "up") return "/";
     if (bond.direction === "down") return "\\";
+    const assigned = this.kekule.get(bond);
+    if (assigned) return assigned === "double" ? "=" : "-";
     return bond.ascii;
   }
 
