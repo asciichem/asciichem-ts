@@ -61,6 +61,7 @@ interface ResolverExpectation {
 interface Fixture {
   id: string;
   input?: string;
+  text?: string;
   smiles?: string;
   molfile?: string;
   parses?: boolean;
@@ -218,6 +219,20 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   });
 
   // Structure interchange (TODO.v2 09): distinct keys, opt-in levels.
+  // The structure-reference family's recorded text column
+  // (asciichem-tests#31): where the canonical text was recorded, the
+  // runtime produces exactly that string (cross-runtime text parity
+  // of the ingest edge).
+  describe("structure-reference recorded text", () => {
+    for (const fixture of fixtures.filter(
+      (f) => typeof f.input === "string" && typeof f.text === "string",
+    )) {
+      it(fixture.id, () => {
+        expect(parseText(fixture.input as string).toText()).toBe(fixture.text);
+      });
+    }
+  });
+
   describe("SMILES ingestion", () => {
     for (const fixture of [...smilesCases, ...perceptionCases]) {
       it(fixture.id, () => {
