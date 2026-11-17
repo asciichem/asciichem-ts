@@ -30,13 +30,13 @@ import { ParseError } from "../errors.js";
 // Version the vendored artifact was built from; load fails loudly on
 // drift so the engine never runs a stale grammar (mirrors
 // PargEngine::PARG_GRAMMAR_VERSION in asciichem-ruby).
-const PARG_GRAMMAR_VERSION = "0.5.0";
+const PARG_GRAMMAR_VERSION = "0.6.0";
 
 // SHA-256 of the vendored artifact bytes — pins the vendored revision
 // byte-exactly (parsanol's own checksum verifies the artifact's
 // grammar-source integrity; this pins the vendored copy).
 const ARTIFACT_SHA256 =
-  "859aa70b55ae39646d1aebcc64e53136786597f734f48d84517dd6c53effbee8";
+  "bc14145fa033472cc18363a3ca0ebd512e262d3a43c9329a2dd0e9cc34d9a068";
 
 const ENTRY = "formula";
 
@@ -192,6 +192,9 @@ function adaptFormulaNode(node: unknown): unknown {
     throw new ParseError(`unexpected PARG node: ${JSON.stringify(node)}`);
   }
   const n = node as ShapeNode;
+  if (n["structure_reference"] !== undefined) {
+    return adaptStructureReference(unwrapKeyStrict(n, "structure_reference", "formula node"));
+  }
   if (n["annotated_molecule"] !== undefined) return adaptAnnotated(unwrapKeyStrict(n, "annotated_molecule", "formula node"));
   if (n["molecule"] !== undefined) return adaptMolecule(unwrapKeyStrict(n, "molecule", "formula node"));
   if (n["reaction"] !== undefined) return adaptReaction(unwrapKeyStrict(n, "reaction", "formula node"));
@@ -205,6 +208,14 @@ function adaptFormulaNode(node: unknown): unknown {
   if (n["zmatrix_node"] !== undefined) return adaptZMatrix(unwrapKeyStrict(n, "zmatrix_node", "formula node"));
   if (n["mechanism_node"] !== undefined) return adaptMechanism(unwrapKeyStrict(n, "mechanism_node", "formula node"));
   throw new ParseError(`unexpected PARG formula node: ${JSON.stringify(Object.keys(n))}`);
+}
+
+function adaptStructureReference(node: ShapeNode): unknown {
+  return {
+    kind: "structure-ref",
+    refType: slice(node["ref_type"]) ?? "",
+    refValue: slice(node["ref_value"]) ?? "",
+  };
 }
 
 function adaptAnnotated(node: ShapeNode): unknown {
