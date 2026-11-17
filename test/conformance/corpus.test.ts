@@ -222,11 +222,13 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   // The structure-reference family's recorded text column
   // (asciichem-tests#31): where the canonical text was recorded, the
   // runtime produces exactly that string (cross-runtime text parity
-  // of the ingest edge).
-  describe("structure-reference recorded text", () => {
-    for (const fixture of fixtures.filter(
-      (f) => typeof f.input === "string" && typeof f.text === "string",
-    )) {
+  // of the ingest edge). skipIf: a corpus release without the family
+  // leaves the suite empty, and vitest refuses empty suites.
+  const referenceTextCases = fixtures.filter(
+    (f) => typeof f.input === "string" && typeof f.text === "string",
+  );
+  describe.skipIf(referenceTextCases.length === 0)("structure-reference recorded text", () => {
+    for (const fixture of referenceTextCases) {
       it(fixture.id, () => {
         expect(parseText(fixture.input as string).toText()).toBe(fixture.text);
       });
