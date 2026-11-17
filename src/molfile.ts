@@ -124,9 +124,31 @@ const BOND_TYPES: Partial<Record<BondKind, number>> = {
 const BOND_STEREO: Partial<Record<BondKind, number>> = { wedge: 1, hash: 6 };
 
 export function writeMolfile(molecule: Molecule, name = ""): string {
-  const { atoms, edges } = buildGraph(molecule);
-  if (edges.length === 0 && atoms.length > 1) {
+  const { atoms: modelAtoms, edges: modelEdges } = buildGraph(molecule);
+  if (modelEdges.length === 0 && modelAtoms.length > 1) {
     throw new ParseError("molecule has no bonds — a formula is not a structure");
+  }
+
+  // Aromatic carriers lose their bracket H in the identity pipe: the
+  // V2000 H-count column is oracle-ignored (the release engine never
+  // reads it) and the valence derivation does not hand aromatic atoms
+  // their H — a pyrrole's [nH] reads one hydrogen short (the Ruby
+  // transport loss, asciichem-ruby#181). The explicit H atom is the
+  // transport that survives, the same posture as [2H]. Non-aromatic
+  // carriers are untouched: their H derive by valence everywhere, and
+  // the recorded corpus molfiles pin their bytes.
+  const atoms: Atom[] = [...modelAtoms];
+  const edges: Edge[] = [...modelEdges];
+  const hCarriers: { target: number; carrier: number; nth: number }[] = [];
+  const baseAtoms = modelAtoms.length;
+  for (const [index, atom] of modelAtoms.entries()) {
+    if (!atom.aromatic || !atom.hydrogens) continue;
+    for (let nth = 0; nth < atom.hydrogens; nth++) {
+      const target = atoms.length;
+      hCarriers.push({ target, carrier: index, nth });
+      atoms.push(new Atom("H"));
+      edges.push({ from: index, to: target, kind: "single" });
+    }
   }
 
   const { positions } = layoutMolecule(molecule);
@@ -140,8 +162,19 @@ export function writeMolfile(molecule: Molecule, name = ""): string {
   );
 
   atoms.forEach((atom, index) => {
-    const x = atom.x2 ?? positions[index]?.x ?? 0;
-    const y = atom.y2 ?? positions[index]?.y ?? 0;
+    // Materialized H atoms sit offset from their carrier (stacked when
+    // several) — no layout position exists for them.
+    const carrier = hCarriers.find((entry) => entry.target === index);
+    let x: number;
+    let y: number;
+    if (carrier) {
+      const from = modelAtoms[carrier.carrier];
+      x = (from.x2 ?? positions[carrier.carrier]?.x ?? 0) + 0.75;
+      y = (from.y2 ?? positions[carrier.carrier]?.y ?? 0) + 0.75 * carrier.nth;
+    } else {
+      x = atom.x2 ?? positions[index]?.x ?? 0;
+      y = atom.y2 ?? positions[index]?.y ?? 0;
+    }
     const z = atom.z2 ?? 0;
     lines.push(
       `${fixed(x)}${fixed(y)}${fixed(z)} ${atom.element.padEnd(3)} 0  0  0  0  0  0  0  0  0  0  0  0`,
