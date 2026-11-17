@@ -161,7 +161,7 @@ export function writeMolfile(molecule: Molecule, name = ""): string {
     `${pad3(atoms.length)}${pad3(edges.length)}  0  0  0  0  0  0  0  0999 V2000`,
   );
 
-  atoms.forEach((atom, index) => {
+  const coords: { x: number; y: number }[] = atoms.map((atom, index) => {
     // Materialized H atoms sit offset from their carrier (stacked when
     // several) — no layout position exists for them.
     const carrier = hCarriers.find((entry) => entry.target === index);
@@ -175,20 +175,58 @@ export function writeMolfile(molecule: Molecule, name = ""): string {
       x = atom.x2 ?? positions[index]?.x ?? 0;
       y = atom.y2 ?? positions[index]?.y ?? 0;
     }
+    return { x, y };
+  });
+
+  // One wedge per chiral atom, on its first bond. The chiral atom's
+  // heavy ligands sit in a trigonal triangle around it (the chemomer
+  // synthesis's corpus-fitted shape) and the wedge code pairs with
+  // that handedness: TH1 falls (6), TH2 rises (1). The base layout's
+  // zigzag can collide ligand positions, and a degenerate drawing
+  // reads no parity at all, so the stereocentre's neighbourhood is
+  // synthesized deterministically.
+  const wedges = new Map<number, { from: number; to: number; stereo: number }>();
+  atoms.forEach((atom, index) => {
+    if (atom.chirality !== "TH1" && atom.chirality !== "TH2") return;
+    const ligandBonds = edges
+      .map((edge, bondIndex) => ({ edge, bondIndex }))
+      .filter(({ edge }) => edge.from === index || edge.to === index);
+    const { x: cx, y: cy } = coords[index];
+    ligandBonds.slice(0, 3).forEach(({ edge }, slot) => {
+      const ligand = edge.from === index ? edge.to : edge.from;
+      const angle = ((90 + 120 * slot) * Math.PI) / 180;
+      coords[ligand] = { x: cx + 28 * Math.cos(angle), y: cy + 28 * Math.sin(angle) };
+    });
+    const first = ligandBonds[0];
+    const edge = first.edge;
+    const other = edge.from === index ? edge.to : edge.from;
+    wedges.set(first.bondIndex, {
+      from: index,
+      to: other,
+      stereo: atom.chirality === "TH1" ? 6 : 1,
+    });
+  });
+
+  atoms.forEach((atom, index) => {
+    const { x, y } = coords[index];
     const z = atom.z2 ?? 0;
     lines.push(
       `${fixed(x)}${fixed(y)}${fixed(z)} ${atom.element.padEnd(3)} 0  0  0  0  0  0  0  0  0  0  0  0`,
     );
   });
 
-  for (const edge of edges) {
+  edges.forEach((edge, bondIndex) => {
     const type = BOND_TYPES[edge.kind];
     if (type === undefined) throw new ParseError(`${edge.kind} bonds have no molfile V2000 type`);
     const stereo = BOND_STEREO[edge.kind] ?? 0;
+    const wedge = wedges.get(bondIndex);
+    const from = wedge ? wedge.from : edge.from;
+    const to = wedge ? wedge.to : edge.to;
+    const bondStereo = wedge ? wedge.stereo : stereo;
     lines.push(
-      `${pad3(edge.from + 1)}${pad3(edge.to + 1)}${pad3(type)}${pad3(stereo)}  0  0  0  0  0  0  0`,
+      `${pad3(from + 1)}${pad3(to + 1)}${pad3(type)}${pad3(bondStereo)}  0  0  0  0  0  0  0`,
     );
-  }
+  });
 
   lines.push(propertyLine("M  CHG", chargePairs(atoms)));
   lines.push(propertyLine("M  ISO", isotopePairs(atoms)));
