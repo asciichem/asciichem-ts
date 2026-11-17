@@ -199,4 +199,30 @@ describe("molfile", () => {
     );
     expect(() => parseMolfile(ethanol.split("\n").slice(0, 5).join("\n"))).toThrow(ParseError);
   });
+
+  it("materializes aromatic bracket hydrogens as explicit atoms", () => {
+    // The V2000 H-count column is oracle-ignored and the valence
+    // derivation does not hand aromatic atoms their H, so a pyrrole's
+    // [nH] must cross as a real H atom (asciichem-ruby#181).
+    const pyrrole = (parseSmiles("c1cc[nH]c1") as Formula).nodes[0] as Molecule;
+    const text = writeMolfile(pyrrole);
+    const lines = text.split("\n");
+    expect(lines[3]).toBe("  6  6  0  0  0  0  0  0  0  0999 V2000");
+    const atomLines = lines.slice(4, 10);
+    expect(atomLines.filter((line) => line.slice(31, 34).trim() === "H").length).toBe(1);
+    expect(atomLines.some((line) => line.slice(31, 34).trim() === "N")).toBe(true);
+    expect(lines.slice(10, 16).some((line) => line.startsWith("  4  6  1  0"))).toBe(true);
+  });
+
+  it("leaves non-aromatic hydrogens off the atom block", () => {
+    // Recorded corpus molfiles pin the alanine bytes: the
+    // stereocenter's H derives by valence in every engine.
+    const alanine = (parseSmiles("N[C@@H](C)C(=O)O") as Formula).nodes[0] as Molecule;
+    const text = writeMolfile(alanine);
+    const lines = text.split("\n");
+    expect(lines[3]).toBe("  6  5  0  0  0  0  0  0  0  0999 V2000");
+    expect(lines.slice(4, 10).map((line) => line.slice(31, 34).trim())).toEqual(
+      ["N", "C", "C", "C", "O", "O"],
+    );
+  });
 });
