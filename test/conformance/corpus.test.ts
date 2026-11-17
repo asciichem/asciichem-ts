@@ -142,7 +142,11 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
       typeof f.input === "string" &&
       f.lint === undefined &&
       f.convention === undefined &&
-      f.cmlRoundTrip === undefined,
+      f.cmlRoundTrip === undefined &&
+      // The structure-reference family owns the input+smiles cases
+      // (the standalone ingest edge); plain parser fixtures never
+      // carry a smiles source.
+      f.smiles === undefined,
   );
   const identifierCases = fixtures.filter(
     (f) => typeof f.convention === "string" && typeof f.value === "string" && typeof f.valid === "boolean",
@@ -155,7 +159,12 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   const citationCases = fixtures.filter((f) => f.substance !== undefined && typeof f.bibitem === "string");
   const cliCases = fixtures.filter((f) => Array.isArray(f.invocation));
   const perceptionCases = fixtures.filter((f) => f.perception !== undefined);
-  const smilesCases = fixtures.filter((f) => typeof f.smiles === "string" && f.perception === undefined);
+  const smilesCases = fixtures.filter(
+    (f) => typeof f.smiles === "string" && f.perception === undefined && f.input === undefined,
+  );
+  const referenceCases = fixtures.filter(
+    (f) => typeof f.input === "string" && typeof f.smiles === "string" && f.perception === undefined,
+  );
   const molfileCases = fixtures.filter((f) => typeof f.molfile === "string");
   const rinchiCases = fixtures.filter((f) => typeof f.rinchi === "string");
 
@@ -174,6 +183,7 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
       cliCases,
       perceptionCases,
       smilesCases,
+      referenceCases,
       molfileCases,
       rinchiCases,
     ];
@@ -258,7 +268,9 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   // the L4 family — the chemomer extra is never a hard dependency,
   // and cases carry no column outside the recorded intersection.
   describe("SMILES recorded identity", () => {
-    const identityCases = smilesCases.filter((f) => typeof f.inchi === "string");
+    const identityCases = fixtures.filter(
+      (f) => typeof f.smiles === "string" && typeof f.inchi === "string" && f.perception === undefined,
+    );
     const posture: "none" | "inchi" = chemomerAvailable() ? "inchi" : "none";
     beforeAll(async () => {
       if (posture === "inchi") await registerChemomerEngine();
