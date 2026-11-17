@@ -17,6 +17,10 @@ export interface Edge {
   to: number;
   kind: Bond["kind"];
   direction?: "up" | "down";
+  // The source Bond token (undefined for ring-closure edges — digits
+  // carry no kind), so projections can map an assignment back to the
+  // node that renders it.
+  bond?: Bond;
 }
 
 export function buildGraph(molecule: Molecule): { atoms: Atom[]; edges: Edge[] } {
@@ -31,7 +35,13 @@ export function buildGraph(molecule: Molecule): { atoms: Atom[]; edges: Edge[] }
         const index = atoms.length;
         atoms.push(node);
         if (pending && last !== undefined) {
-          edges.push({ from: last, to: index, kind: pending.kind, direction: pending.direction });
+          edges.push({
+            from: last,
+            to: index,
+            kind: pending.kind,
+            direction: pending.direction,
+            bond: pending,
+          });
         }
         last = index;
         pending = undefined;
