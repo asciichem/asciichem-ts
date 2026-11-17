@@ -110,3 +110,35 @@ describe("parseText", () => {
     expect(reaction.conditions?.below).toBe("500C");
   });
 });
+
+describe("the standalone structure reference (grammar v0.6.0)", () => {
+  it("ingests the molecule", () => {
+    const formula = parseText('@smiles("c1cc[nH]c1")');
+    const molecule = formula.nodes[0] as Molecule;
+    expect(molecule).toBeInstanceOf(Molecule);
+    expect(
+      molecule.nodes
+        .map((n) => (n as import("../../src/model.js").Atom).element)
+        .filter((element) => element !== undefined),
+    ).toEqual(["C", "C", "C", "N", "C"]);
+  });
+
+  it("canonical text is the expanded ascii form (the ingest-edge loss)", () => {
+    expect(parseText('@smiles("CCO")').toText()).toBe("C-C-O");
+  });
+
+  it("keeps the attached form the identifier annotation", () => {
+    const molecule = (parseText('H_2O @smiles("CCO")').nodes[0]) as Molecule;
+    expect(
+      molecule.nodes.map((n) => (n as import("../../src/model.js").Atom).element),
+    ).toEqual(["H", "O"]);
+  });
+
+  it("rejects other sources at parse time", () => {
+    expect(() => parseText('@molfile("CCO")')).toThrow(ParseError);
+  });
+
+  it("rejects dot-disconnected components with guidance", () => {
+    expect(() => parseText('@smiles("CC.O")')).toThrow(/one connected structure/);
+  });
+});

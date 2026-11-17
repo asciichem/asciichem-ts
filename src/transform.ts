@@ -39,6 +39,7 @@ import {
 } from "./model.js";
 import { ParseError } from "./errors.js";
 import { parseFormulaCaptures, PargSyntaxError } from "./parg/engine.js";
+import { parseSmiles } from "./smiles.js";
 
 // -- capture shapes (what the grammar returns) -------------------------
 
@@ -83,6 +84,11 @@ interface AnnotatedCapture {
   kind: "annotated";
   molecule: MoleculeCapture;
   annotations: { metaKey?: string; metaValue?: string; annType?: string; annValue?: string }[];
+}
+interface StructureRefCapture {
+  kind: "structure-ref";
+  refType: string;
+  refValue: string;
 }
 interface ReactionCapture {
   kind: "reaction";
@@ -133,6 +139,8 @@ function buildNode(capture: unknown): Node {
       return buildMolecule(c as never as MoleculeCapture);
     case "annotated":
       return buildAnnotated(c as never as AnnotatedCapture);
+    case "structure-ref":
+      return buildStructureReference(c as never as StructureRefCapture);
     case "reaction":
       return buildReaction(
         (c as never as ReactionCapture).reactants,
@@ -272,6 +280,27 @@ function buildAnnotated(c: AnnotatedCapture): Molecule {
   const molecule = buildMolecule(c.molecule);
   for (const ann of c.annotations) applyAnnotation(molecule, ann);
   return molecule;
+}
+
+// The standalone structure reference (grammar v0.6.0, asciichem-rs#45):
+// `@smiles("...")` standing alone is an ingest edge — the annotation
+// carries the structure in, the model is the molecule this runtime's
+// own SMILES reader produces. The attached form
+// (`molecule @smiles(...)`) never reaches here: there the value rides
+// applyAnnotation as the identifier annotation it has always been.
+function buildStructureReference(c: StructureRefCapture): Node {
+  if (c.refType !== "smiles") {
+    throw new ParseError(
+      `the structure reference carries no ${c.refType} source yet (v1 carries smiles)`,
+    );
+  }
+  const formula = parseSmiles(c.refValue);
+  if (formula.nodes.length !== 1) {
+    throw new ParseError(
+      "the structure reference carries one connected structure (write dot-disconnected components as separate references)",
+    );
+  }
+  return formula.nodes[0];
 }
 
 const IDENTIFIER_TYPES = new Set(["inchi", "smiles", "cas", "iupac", "cid", "chebi"]);
