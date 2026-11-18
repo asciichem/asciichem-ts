@@ -55,8 +55,10 @@ export class LatexFormatter implements Visitor<string> {
     const prefix = isBlank(molecule.coefficient) ? "" : molecule.coefficient;
     const stereo = molecule.stereo ? `(${molecule.stereoLetter})-` : "";
     const body = molecule.nodes.map((n) => this.render(n)).join("");
-    if (this.insideCe) return `${stereo}${prefix}${body}`;
-    return `\\ce{${stereo}${prefix}${body}}`;
+    // mhchem's own output form for the phase mark.
+    const state = molecule.state === "precipitate" ? "\\downarrow" : molecule.state === "gas" ? "\\uparrow" : "";
+    if (this.insideCe) return `${stereo}${prefix}${body}${state}`;
+    return `\\ce{${stereo}${prefix}${body}${state}}`;
   }
 
   visitAtom(atom: Atom): string {

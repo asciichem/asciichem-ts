@@ -97,6 +97,7 @@ function fromNode(wire: AnyWire): Node {
         (wire.nodes as AnyWire[]).map(fromNode),
         optionalString(wire.coefficient),
         wire.stereo as Molecule["stereo"],
+        (wire as { state?: Molecule["state"] }).state,
       );
       for (const identifier of (wire.identifiers as AnyWire[] | undefined) ?? []) {
         molecule.identifiers.push(

@@ -465,6 +465,13 @@ function emitMolecule(
   if (molecule.coefficient !== undefined) leptris.setAttributeSync(element, "count", molecule.coefficient);
   const totalCharge = totalFormalCharge(atoms);
   if (totalCharge !== null) leptris.setAttributeSync(element, "formalCharge", totalCharge);
+  // The molecule-level state rides aci:state (the wire schema grew
+  // the field; CML keeps the explicit channel like the other
+  // molecule extensions).
+  if (molecule.state !== undefined) {
+    leptris.setAttributeSync(element, `${ACI_PREFIX}:state`, molecule.state);
+    extensions = true;
+  }
   if (atoms.length > 0) {
     const array = leptris.createElementSync(documentId, "atomArray");
     for (const atom of atoms) {
@@ -795,7 +802,11 @@ function readMolecule(element: XNode, prefix: string): Molecule {
     }
   }
 
-  const molecule = new Molecule([], coefficient);
+  // The state side-channel: the semantic word on aci:state. Unknown
+  // values are ignored (forward compatibility).
+  const rawState = attrAci(element, prefix, "state");
+  const state = rawState === "precipitate" || rawState === "gas" ? rawState : undefined;
+  const molecule = new Molecule([], coefficient, undefined, state);
   rebuildAtomsAndBonds(molecule, wireAtoms, wireBonds);
   rebuildGroups(molecule, groups);
   return molecule;

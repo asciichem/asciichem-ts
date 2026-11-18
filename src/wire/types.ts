@@ -1,5 +1,5 @@
 // Canonical wire types for the asciichem-model v1 JSON form.
-// Vendored from asciichem-model schemas/v1/types (tag v0.5.0) —
+// Vendored from asciichem-model schemas/v1/types (tag v0.7.0) —
 // regenerate with scripts/update-model-types.sh, never edit by hand.
 export interface Atom {
   readonly type: "atom";
@@ -111,7 +111,10 @@ export interface Mechanism {
   readonly steps?: {
     label?: string;
     reaction: Reaction;
-    flows?: { source: string; target: string }[];
+    flows?: {
+    source: string;
+    target: string;
+  }[];
   }[];
   readonly spectators?: Molecule[];
 }
@@ -121,6 +124,7 @@ export interface Molecule {
   readonly nodes: (Molecule | Group | Bond | Atom)[];
   readonly coefficient?: string;
   readonly stereo?: "R" | "S" | "E" | "Z" | "alpha" | "beta";
+  readonly state?: "precipitate" | "gas";
   readonly identifiers?: Identifier[];
 }
 

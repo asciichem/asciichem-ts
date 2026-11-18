@@ -98,6 +98,10 @@ export class MathmlFormatter implements Visitor<XmlElement> {
     if (molecule.stereo) children.push(mtext(`(${molecule.stereoLetter})-`));
     if (molecule.coefficient !== undefined) children.push(mn(molecule.coefficient));
     children.push(...molecule.nodes.map((n) => n.accept(this)));
+    // The mhchem phase arrow after the formula: precipitate ↓, gas ↑.
+    if (molecule.state !== undefined) {
+      children.push(mo(molecule.state === "precipitate" ? "↓" : "↑"));
+    }
     return el("mrow", undefined, children);
   }
 

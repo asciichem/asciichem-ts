@@ -32,6 +32,8 @@ import {
   ReactionConditions,
   Spectrum,
   SpectrumPeak,
+  StateKind,
+  STATES,
   StereoKind,
   Text,
   ZMatrix,
@@ -78,6 +80,7 @@ interface MoleculeCapture {
   kind: "molecule";
   stereo?: string;
   coefficient?: string;
+  state?: string;
   units: (AtomCapture | BondCapture | GroupCapture)[];
 }
 interface AnnotatedCapture {
@@ -255,6 +258,8 @@ function nilToUndefined<T>(v: T | null | undefined): T | undefined {
 
 // -- molecules and groups --------------------------------------------------
 
+const STATE_MAP: Record<string, StateKind> = STATES;
+
 const STEREO_MAP: Record<string, StereoKind> = {
   R: "R",
   S: "S",
@@ -273,6 +278,7 @@ function buildMolecule(c: MoleculeCapture): Molecule {
     c.units.map((unit) => buildNode(unit) as Node),
     nilToUndefined(c.coefficient),
     c.stereo ? STEREO_MAP[c.stereo] : undefined,
+    c.state ? STATE_MAP[c.state] : undefined,
   );
 }
 
