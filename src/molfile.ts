@@ -185,6 +185,36 @@ export function writeMolfile(molecule: Molecule, name = ""): string {
   // zigzag can collide ligand positions, and a degenerate drawing
   // reads no parity at all, so the stereocentre's neighbourhood is
   // synthesized deterministically.
+  // Directional bonds draw the E/Z layer: a direction rides a single
+  // bond adjacent to a double bond, and the substituent's SIDE of that
+  // double bond is the drawn information. The layout's arbitrary
+  // placement carries no side semantics (the layered layout draws
+  // chains collinear), so each directional substituent is placed
+  // perpendicular to the double-bond axis, anchored at its bond
+  // partner, with the side read against the STRING-ORDERED axis (a→b)
+  // — the chemomer lift's invariant, so `C/C=C/C` draws trans and
+  // `C/C=C\C` cis regardless of which end the axis runs from.
+  edges.forEach((edge) => {
+    if (edge.direction === undefined) return;
+    const resolved = doubleBondAxis(edges, edge);
+    if (!resolved) return;
+    const [axis, pIndex, uIndex] = resolved;
+    const qIndex = axis.from === pIndex ? axis.to : axis.from;
+    const aIndex = Math.min(pIndex, qIndex);
+    const bIndex = Math.max(pIndex, qIndex);
+    const { x: ax, y: ay } = coords[aIndex];
+    const { x: bx, y: by } = coords[bIndex];
+    const { x: px, y: py } = coords[pIndex];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    if (length < 1e-9) return;
+    const nx = -dy / length;
+    const ny = dx / length;
+    const side = (edge.direction === "up" ? 1 : -1) * (uIndex > aIndex ? 1 : -1);
+    coords[uIndex] = { x: px + nx * length * side, y: py + ny * length * side };
+  });
+
   const wedges = new Map<number, { from: number; to: number; stereo: number }>();
   atoms.forEach((atom, index) => {
     if (atom.chirality !== "TH1" && atom.chirality !== "TH2") return;
@@ -273,4 +303,26 @@ function propertyLine(prefix: string, pairs: [number, number][]): string | null 
 
 function pad4(n: number): string {
   return String(n).padStart(4);
+}
+
+// The double-bond axis a directional bond borders: which end of the
+// single bond touches a kind-2 bond's atom, with that endpoint, the
+// substituent (the other end), and the double-bond edge.
+function doubleBondAxis(edges: Edge[], single: Edge): [Edge, number, number] | undefined {
+  for (const [atom, other] of [
+    [single.from, single.to],
+    [single.to, single.from],
+  ]) {
+    const axis = edges.find(
+      (candidate) =>
+        candidate.kind === "double" &&
+        ((candidate.from === atom && candidate.to !== other) ||
+          (candidate.to === atom && candidate.from !== other)),
+    );
+    if (axis) {
+      const substituent = single.from === atom ? single.to : single.from;
+      return [axis, atom, substituent];
+    }
+  }
+  return undefined;
 }
