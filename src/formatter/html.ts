@@ -50,7 +50,9 @@ export class HtmlFormatter implements Visitor<string> {
     const prefix = molecule.coefficient === undefined || molecule.coefficient === "" ? "" : escape(molecule.coefficient);
     const stereo = molecule.stereo ? `(${molecule.stereoLetter})-` : "";
     const body = molecule.nodes.map((n) => this.render(n)).join("");
-    return `${stereo}${prefix}${body}`;
+    // The phase arrow as its HTML entity.
+    const state = molecule.state === "precipitate" ? "&darr;" : molecule.state === "gas" ? "&uarr;" : "";
+    return `${stereo}${prefix}${body}${state}`;
   }
 
   visitAtom(atom: Atom): string {

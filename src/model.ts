@@ -36,6 +36,18 @@ export const ARROW_KINDS: Record<ArrowKind, { ascii: string; wire: ArrowKind; en
   resonance: { ascii: "<->", wire: "resonance", entity: "↔" },
 };
 
+export type StateKind = "precipitate" | "gas";
+
+export const STATE_GLYPHS: Record<StateKind, string> = {
+  precipitate: "v",
+  gas: "^",
+};
+
+export const STATES: Record<string, StateKind> = {
+  v: "precipitate",
+  "^": "gas",
+};
+
 export const STEREO_TO_LETTER: Record<StereoKind, string> = {
   R: "R",
   S: "S",
@@ -321,6 +333,7 @@ export class Molecule extends Node {
     readonly nodes: Node[],
     readonly coefficient?: string,
     readonly stereo?: StereoKind,
+    readonly state?: StateKind,
     readonly names: Name[] = [],
     readonly identifiers: Identifier[] = [],
     public title?: string,

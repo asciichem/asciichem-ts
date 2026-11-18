@@ -107,6 +107,11 @@ export class SvgFormatter implements Visitor<string> {
       }
       if (node.coefficient !== undefined) segments.push(seg(node.coefficient, 0));
       for (const child of node.nodes) segments.push(...this.segmentsFor(child));
+      // The unicode phase arrow, the glyph MathML typesets.
+      if (node.state !== undefined) {
+        segments.push(seg(" ", 0));
+        segments.push(seg(node.state === "precipitate" ? "↓" : "↑", 0));
+      }
       return segments;
     }
     if (node instanceof Atom) return this.atomSegments(node);

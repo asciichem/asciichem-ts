@@ -30,13 +30,13 @@ import { ParseError } from "../errors.js";
 // Version the vendored artifact was built from; load fails loudly on
 // drift so the engine never runs a stale grammar (mirrors
 // PargEngine::PARG_GRAMMAR_VERSION in asciichem-ruby).
-const PARG_GRAMMAR_VERSION = "0.6.0";
+const PARG_GRAMMAR_VERSION = "0.7.0";
 
 // SHA-256 of the vendored artifact bytes — pins the vendored revision
 // byte-exactly (parsanol's own checksum verifies the artifact's
 // grammar-source integrity; this pins the vendored copy).
 const ARTIFACT_SHA256 =
-  "bc14145fa033472cc18363a3ca0ebd512e262d3a43c9329a2dd0e9cc34d9a068";
+  "7c1d337555b424dfd8d33a5f021b0553cb2e54ff7af62560ea7e571243016a95";
 
 const ENTRY = "formula";
 
@@ -242,6 +242,7 @@ function adaptMolecule(node: ShapeNode): unknown {
     kind: "molecule",
     stereo: slice(node["stereo"]),
     coefficient: wrappedSlice(node["coefficient"]),
+    state: slice(node["state"]),
     units: rawUnits.map(adaptUnit),
   };
 }
