@@ -65,6 +65,7 @@ class ToWireVisitor implements Visitor<WireNode> {
   visitAtom(node: Atom): WireNode {
     const wire: Writable<WireAtom> = { type: "atom", element: node.element };
     if (node.isotope !== undefined) wire.isotope = digitsOrNil(node.isotope);
+    if (node.atomicNumber !== undefined) wire.atomicNumber = digitsOrNil(node.atomicNumber);
     if (node.charge !== undefined) wire.charge = node.charge;
     if (node.subscript !== undefined) wire.subscript = digitsOrNil(node.subscript);
     if (node.oxidationState !== undefined) wire.oxidationState = node.oxidationState;

@@ -30,7 +30,7 @@ export function parseMolfile(text: string): Molecule {
     const z = Number(line.slice(20, 30));
     const element = line.slice(31, 34).trim();
     if (element === "") throw new ParseError(`atom ${i} has no element symbol`);
-    atoms.push(new Atom(element, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, x, y, z));
+    atoms.push(new Atom(element, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, x, y, z));
   }
 
   const bonds: { from: number; to: number; kind: BondKind }[] = [];

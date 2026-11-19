@@ -179,6 +179,7 @@ export class SvgFormatter implements Visitor<string> {
     const segments: Segment[] = [];
     if (atom.lonePairs !== undefined) segments.push(seg(":".repeat(atom.lonePairs), -6));
     if (atom.isotope !== undefined) segments.push(seg(atom.isotope, -6));
+    if (atom.atomicNumber !== undefined) segments.push(seg(atom.atomicNumber, -6));
     segments.push(seg(atom.element, 0));
     if (atom.subscript !== undefined) segments.push(seg(atom.subscript, +5));
     if (atom.superscript !== undefined) segments.push(seg(atom.superscript, -6));

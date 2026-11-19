@@ -65,6 +65,7 @@ export class LatexFormatter implements Visitor<string> {
     const parts: string[] = [];
     if (atom.lonePairs !== undefined) parts.push(":".repeat(atom.lonePairs));
     if (atom.isotope !== undefined) parts.push(`^${wrap(atom.isotope)}`);
+    if (atom.atomicNumber !== undefined) parts.push(`_${wrap(atom.atomicNumber)}`);
     parts.push(wrap(atom.element));
     if (atom.subscript !== undefined) parts.push(mhchemSubscript(atom.subscript));
     if (atom.charge !== undefined) {

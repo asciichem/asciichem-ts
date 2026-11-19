@@ -181,7 +181,7 @@ class SmilesParser {
     const symbol = aromaticTwo ?? aromaticOne;
     if (symbol) {
       this.pos += symbol.length;
-      return new Atom(capitalize(symbol), undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, true);
+      return new Atom(capitalize(symbol), undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, true);
     }
     throw new ParseError(
       `unexpected character ${JSON.stringify(this.peek())} at position ${this.pos} in ${JSON.stringify(this.source)}`,
@@ -200,6 +200,7 @@ class SmilesParser {
     return new Atom(
       capitalize(symbol),
       isotope,
+      undefined,
       undefined,
       undefined,
       charge,

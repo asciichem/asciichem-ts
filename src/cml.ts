@@ -100,11 +100,17 @@ function requireEngine(): void {
 // -- frozen channel registries (the aci: extension surface) ------------
 // Adding a channel member is one entry here — no other code changes.
 
-type AtomExtensionField = "oxidationState" | "lonePairs" | "radicalElectrons" | "ringClosures";
+type AtomExtensionField =
+  | "atomicNumber"
+  | "oxidationState"
+  | "lonePairs"
+  | "radicalElectrons"
+  | "ringClosures";
 
 // Atom-attribute channel: model field name → wire attribute name
 // (without the `aci:` prefix), in wire order.
 const ATOM_FIELDS: readonly (readonly [AtomExtensionField, string])[] = [
+  ["atomicNumber", "atomicNumber"],
   ["oxidationState", "oxidationState"],
   ["lonePairs", "lonePairs"],
   ["radicalElectrons", "radicalElectrons"],
@@ -410,6 +416,7 @@ class MoleculeWalker {
       formalCharge: atom.charge,
       count,
       extensions: {
+        atomicNumber: atom.atomicNumber,
         oxidationState: atom.oxidationState,
         lonePairs: atom.lonePairs === undefined ? undefined : String(atom.lonePairs),
         radicalElectrons: atom.radicalElectrons === undefined ? undefined : String(atom.radicalElectrons),
@@ -823,6 +830,7 @@ function readAtom(element: XNode, prefix: string): { id?: string; atom: Atom } {
     atom: new Atom(
       elementType,
       attr(element, "isotope"),
+      attrAci(element, prefix, "atomicNumber"),
       count === undefined || count === "1" ? undefined : count,
       undefined,
       attr(element, "formalCharge"),

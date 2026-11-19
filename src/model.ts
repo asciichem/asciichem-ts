@@ -173,6 +173,7 @@ export class Atom extends Node {
   constructor(
     readonly element: string,
     readonly isotope?: string,
+    readonly atomicNumber?: string,
     readonly subscript?: string,
     readonly superscript?: string,
     readonly charge?: string,
@@ -202,6 +203,7 @@ export class Atom extends Node {
     return new Atom(
       changes.element ?? this.element,
       "isotope" in changes ? changes.isotope : this.isotope,
+      "atomicNumber" in changes ? changes.atomicNumber : this.atomicNumber,
       "subscript" in changes ? changes.subscript : this.subscript,
       "superscript" in changes ? changes.superscript : this.superscript,
       "charge" in changes ? changes.charge : this.charge,
