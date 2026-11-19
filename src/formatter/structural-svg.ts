@@ -4,6 +4,7 @@
 // hash bonds as hatches, dative as arrowed lines. Falls back to the
 // linear renderer for structures without bonds.
 import {
+  Adduct,
   Atom,
   Calculation,
   Crystal,
@@ -48,6 +49,10 @@ export class StructuralSvgFormatter implements Visitor<string> {
     const width = Math.max(bounds.maxX - bounds.minX, 40);
     const height = Math.max(bounds.maxY - bounds.minY, 40);
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${round(width)} ${round(height)}" width="${round(width)}" height="${round(height)}" role="img">\n${inner}\n</svg>`;
+  }
+
+  visitAdduct(adduct: Adduct): string {
+    return new SvgFormatter().render(adduct);
   }
 
   visitMolecule(molecule: Molecule): string {

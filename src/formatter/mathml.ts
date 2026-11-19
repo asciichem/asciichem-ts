@@ -6,6 +6,7 @@
 // element children are multi-line with 2-space indent; text-only
 // elements are single-line; empty elements self-close.
 import {
+  Adduct,
   Atom,
   Bond,
   Calculation,
@@ -91,6 +92,15 @@ export class MathmlFormatter implements Visitor<XmlElement> {
   // formatter's visit_formula body).
   private rowOf(nodes: Node[]): XmlElement {
     return el("mrow", undefined, nodes.map((n) => n.accept(this)));
+  }
+
+  visitAdduct(adduct: Adduct): XmlElement {
+    const children: XmlElement[] = [];
+    adduct.components.forEach((component, index) => {
+      if (index > 0) children.push(mo("·"));
+      children.push(component.accept(this));
+    });
+    return el("mrow", undefined, children);
   }
 
   visitMolecule(molecule: Molecule): XmlElement {

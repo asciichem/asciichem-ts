@@ -9,6 +9,7 @@
 // engine — the source renders inside a `<math><mtext>` pair, the gap
 // spec'd in test/unit/html.test.ts and tracked upstream).
 import {
+  Adduct,
   Atom,
   Bond,
   Calculation,
@@ -44,6 +45,10 @@ export class HtmlFormatter implements Visitor<string> {
   visitFormula(formula: Formula): string {
     const inner = formula.nodes.map((n) => this.render(n)).join("");
     return `<span class="asciichem">${inner}</span>`;
+  }
+
+  visitAdduct(adduct: Adduct): string {
+    return adduct.components.map((c) => this.render(c)).join("&middot;");
   }
 
   visitMolecule(molecule: Molecule): string {

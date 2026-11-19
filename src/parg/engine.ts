@@ -30,13 +30,13 @@ import { ParseError } from "../errors.js";
 // Version the vendored artifact was built from; load fails loudly on
 // drift so the engine never runs a stale grammar (mirrors
 // PargEngine::PARG_GRAMMAR_VERSION in asciichem-ruby).
-const PARG_GRAMMAR_VERSION = "0.8.0";
+const PARG_GRAMMAR_VERSION = "0.9.0";
 
 // SHA-256 of the vendored artifact bytes — pins the vendored revision
 // byte-exactly (parsanol's own checksum verifies the artifact's
 // grammar-source integrity; this pins the vendored copy).
 const ARTIFACT_SHA256 =
-  "86a62ebd000b4952a72aa0802be609a16b069e77a2bf888d87ffb609e47498df";
+  "ca28ac1196078d017f4b11a4d82e734f3ce9159af5603138d9495fbdc37b5419";
 
 const ENTRY = "formula";
 
@@ -196,6 +196,7 @@ function adaptFormulaNode(node: unknown): unknown {
     return adaptStructureReference(unwrapKeyStrict(n, "structure_reference", "formula node"));
   }
   if (n["annotated_molecule"] !== undefined) return adaptAnnotated(unwrapKeyStrict(n, "annotated_molecule", "formula node"));
+  if (n["adduct"] !== undefined) return adaptAdduct(unwrapKeyStrict(n, "adduct", "formula node"));
   if (n["molecule"] !== undefined) return adaptMolecule(unwrapKeyStrict(n, "molecule", "formula node"));
   if (n["reaction"] !== undefined) return adaptReaction(unwrapKeyStrict(n, "reaction", "formula node"));
   if (n["cascade"] !== undefined) return adaptCascade(unwrapKeyStrict(n, "cascade", "formula node"));
@@ -232,6 +233,24 @@ function adaptAnnotated(node: ShapeNode): unknown {
         return { metaKey, metaValue: slice(annotation["meta_value"]) ?? "" };
       }
       return { annType: slice(annotation["ann_type"]) ?? "", annValue: slice(annotation["ann_value"]) ?? "" };
+    }),
+  };
+}
+
+function adaptAdduct(node: ShapeNode): unknown {
+  // The adduct capture: {molecule: <lead>, components: [{dot, molecule}]}
+  // (the repetition may be absent for a single chain falling through).
+  const lead = unwrapKeyStrict(node, "molecule", "adduct");
+  const rawComponents = Array.isArray(node["components"])
+    ? (node["components"] as unknown[])
+    : [];
+  return {
+    kind: "adduct",
+    molecule: adaptMolecule(lead),
+    components: rawComponents.map((component) => {
+      const c = component as ShapeNode;
+      const inner = unwrapKeyStrict(c, "molecule", "adduct component");
+      return { dot: slice(c["dot"]), molecule: adaptMolecule(inner) };
     }),
   };
 }

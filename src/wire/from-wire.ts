@@ -12,7 +12,7 @@ import {
   Formula,
   Group,
   Identifier,
-  Molecule,
+  Adduct, Molecule,
   ArrowKind,
   Reaction,
   ReactionCascade,
@@ -93,6 +93,20 @@ function fromNode(wire: AnyWire): Node {
         optionalString(wire.multiplicity),
         (wire.bracket as BracketKind) ?? "paren",
       );
+    case "adduct": {
+      const adductWire = wire as unknown as {
+        components: AnyWire[];
+      };
+      const components = (adductWire.components as AnyWire[]).map(fromNode);
+      return new Adduct(
+        components.map((component) => {
+          if (!(component instanceof Molecule)) {
+            throw new ParseError("adduct component is not a molecule");
+          }
+          return component;
+        }),
+      );
+    }
     case "molecule": {
       const molecule = new Molecule(
         (wire.nodes as AnyWire[]).map(fromNode),

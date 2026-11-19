@@ -4,6 +4,7 @@
 // are omitted rather than emitted (the model keeps them; the wire
 // contract does not carry them).
 import {
+  Adduct,
   Atom,
   Bond,
   Calculation,
@@ -94,6 +95,14 @@ class ToWireVisitor implements Visitor<WireNode> {
     if (node.multiplicity !== undefined) wire.multiplicity = digitsOrNil(node.multiplicity);
     if (node.bracket !== "paren") wire.bracket = node.bracket;
     return wire;
+  }
+
+  visitAdduct(node: Adduct): WireNode {
+    const wire = {
+      type: "adduct" as const,
+      components: node.components.map((c) => c.toModelJSON()) as unknown as Adduct["components"],
+    };
+    return wire as unknown as WireNode;
   }
 
   visitMolecule(node: Molecule): WireNode {

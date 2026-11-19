@@ -4,6 +4,7 @@
 // charge/oxidation disambiguation is the one deliberate exception,
 // exactly as in the reference).
 import {
+  Adduct,
   Atom,
   Bond,
   BondKind,
@@ -141,6 +142,8 @@ function buildNode(capture: unknown): Node {
       return buildGroup(c as never as GroupCapture);
     case "molecule":
       return buildMolecule(c as never as MoleculeCapture);
+    case "adduct":
+      return buildAdduct(c as never as AdductCapture);
     case "annotated":
       return buildAnnotated(c as never as AnnotatedCapture);
     case "structure-ref":
@@ -274,6 +277,19 @@ const STEREO_MAP: Record<string, StereoKind> = {
   beta: "beta",
   "β": "beta",
 };
+
+interface AdductCapture {
+  kind: "adduct";
+  molecule: MoleculeCapture;
+  components: { dot?: string; molecule: MoleculeCapture }[];
+}
+
+function buildAdduct(c: AdductCapture): Adduct {
+  return new Adduct([
+    buildMolecule(c.molecule),
+    ...c.components.map((component) => buildMolecule(component.molecule)),
+  ]);
+}
 
 function buildMolecule(c: MoleculeCapture): Molecule {
   return new Molecule(
