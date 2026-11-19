@@ -64,6 +64,7 @@ import {
   Spectrum,
   Text,
   ZMatrix,
+  Adduct,
 } from "./model.js";
 import { AsciiChemError } from "./errors.js";
 import { parseText } from "./parser.js";
@@ -128,6 +129,7 @@ const TOP_LEVEL_ELEMENTS = [
   "spectrum",
   "calculation",
   "zmatrix",
+  "adduct",
 ];
 
 // Group brackets on the wire (the model stores the same names).
@@ -315,6 +317,11 @@ function topLevelPayload(node: Node): { element: string; content: string } {
   if (node instanceof Calculation) return { element: "calculation", content: node.toText() };
   if (node instanceof ZMatrix) return { element: "zmatrix", content: node.toText() };
   if (node instanceof Text) return { element: "text", content: `"${node.content}"` };
+  if (node instanceof Adduct) {
+    // The aci:text channel: the canonical text render re-parses on
+    // read (the round-trip-safe-by-construction pattern).
+    return { element: "adduct", content: node.toText() };
+  }
   throw new CmlError(`construct has no CML wire representation: ${node.diagnosticLabel()}`);
 }
 

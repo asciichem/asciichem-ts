@@ -2,6 +2,7 @@
 // parseText(s).toText() === s for any canonical s. Port of
 // AsciiChem::Formatter::Text.
 import {
+  Adduct,
   Atom,
   Bond,
   Calculation,
@@ -34,6 +35,10 @@ export class TextFormatter implements Visitor<string> {
 
   visitFormula(formula: Formula): string {
     return formula.nodes.map((n) => this.render(n)).join(" ");
+  }
+
+  visitAdduct(adduct: Adduct): string {
+    return adduct.components.map((c) => this.render(c)).join(" . ");
   }
 
   visitMolecule(molecule: Molecule): string {

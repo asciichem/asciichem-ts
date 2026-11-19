@@ -8,6 +8,7 @@
 // reference renders Plurimath LaTeX; this implementation has no
 // AsciiMath engine — the raw source renders between `$...$`).
 import {
+  Adduct,
   Atom,
   Bond,
   BracketKind,
@@ -49,6 +50,10 @@ export class LatexFormatter implements Visitor<string> {
     return this.withinCe(
       () => `\\ce{${formula.nodes.map((n) => this.render(n)).join("")}}`,
     );
+  }
+
+  visitAdduct(adduct: Adduct): string {
+    return adduct.components.map((c) => this.render(c)).join("\\cdot ");
   }
 
   visitMolecule(molecule: Molecule): string {

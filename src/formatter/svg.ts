@@ -3,6 +3,7 @@
 // For bonded molecules with an authored structure, prefer
 // StructuralSvgFormatter (2D diagram).
 import {
+  Adduct,
   Atom,
   Bond,
   Calculation,
@@ -38,6 +39,16 @@ export class SvgFormatter implements Visitor<string> {
   visitFormula(formula: Formula): string {
     const lines = formula.nodes.map((n) => this.segmentsFor(n));
     return this.document(lines);
+  }
+
+  visitAdduct(adduct: Adduct): string {
+    return this.document([
+      adduct.components.flatMap((c, i) => {
+        const segments = this.segmentsFor(c);
+        if (i > 0) segments.unshift(seg(" · ", 0));
+        return segments;
+      }),
+    ]);
   }
 
   visitMolecule(molecule: Molecule): string {

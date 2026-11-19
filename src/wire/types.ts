@@ -1,6 +1,11 @@
 // Canonical wire types for the asciichem-model v1 JSON form.
-// Vendored from asciichem-model schemas/v1/types (tag v0.8.0) —
+// Vendored from asciichem-model schemas/v1/types (tag v0.9.0) —
 // regenerate with scripts/update-model-types.sh, never edit by hand.
+export interface Adduct {
+  readonly type: "adduct";
+  readonly components: Molecule[];
+}
+
 export interface Atom {
   readonly type: "atom";
   readonly element: string;
@@ -69,7 +74,7 @@ export interface EmbeddedMath {
 
 export interface Formula {
   readonly type: "formula";
-  readonly nodes: (Molecule | Reaction | ReactionCascade | Group | Atom | Bond | ElectronConfiguration | EmbeddedMath | Text | Name | Identifier | Mechanism | Spectrum | Crystal | ZMatrix | Calculation)[];
+  readonly nodes: (Molecule | Reaction | ReactionCascade | Group | Atom | Bond | ElectronConfiguration | EmbeddedMath | Text | Name | Identifier | Mechanism | Spectrum | Adduct | Calculation)[];
 }
 
 export interface Group {
@@ -87,6 +92,7 @@ export interface Identifier {
 }
 
 export type Node =
+  | Adduct
   | Atom
   | Bond
   | Calculation
@@ -212,6 +218,7 @@ export interface ZMatrix {
 
 // Union of every node type in the v1 model.
 export type WireNode =
+  | Adduct
   | Atom
   | Bond
   | Calculation

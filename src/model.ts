@@ -66,6 +66,7 @@ export const BRACKETS: Record<BracketKind, { open: string; close: string }> = {
 export interface Visitor<T> {
   visitFormula(node: Formula): T;
   visitMolecule(node: Molecule): T;
+  visitAdduct(node: Adduct): T;
   visitAtom(node: Atom): T;
   visitGroup(node: Group): T;
   visitBond(node: Bond): T;
@@ -152,6 +153,25 @@ export abstract class Node {
   // container class means overriding this, no edits in the linter.
   children(): Node[] {
     return [];
+  }
+}
+
+export type AdductKind = "adduct";
+
+/// The adduct: the middle-dot connective between molecules at the
+/// formula level (grammar v0.9.0 — `CuSO4 . 5H2O` hydrates). N-ary:
+/// the components map one-to-one onto the InChI multi-component
+/// layers; each component's coefficient carries its multiplicity.
+export class Adduct extends Node {
+  readonly type = "adduct";
+  constructor(readonly components: Molecule[]) {
+    super();
+  }
+  accept<T>(visitor: Visitor<T>): T {
+    return visitor.visitAdduct(this);
+  }
+  children(): Node[] {
+    return [...this.components];
   }
 }
 
