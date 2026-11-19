@@ -69,6 +69,7 @@ export class TextFormatter implements Visitor<string> {
     const parts: string[] = [];
     if (atom.lonePairs !== undefined) parts.push(":".repeat(atom.lonePairs));
     if (atom.isotope !== undefined) parts.push(`^${atom.isotope}`);
+    if (atom.atomicNumber !== undefined) parts.push(`_${atom.atomicNumber}`);
     parts.push(atom.element);
     if (atom.subscript !== undefined) parts.push(`_${atom.subscript}`);
     if (atom.superscript !== undefined) parts.push(`^${atom.superscript}`);

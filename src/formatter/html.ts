@@ -58,6 +58,7 @@ export class HtmlFormatter implements Visitor<string> {
   visitAtom(atom: Atom): string {
     const parts: string[] = [];
     if (atom.isotope !== undefined) parts.push(`<sup>${escape(atom.isotope)}</sup>`);
+    if (atom.atomicNumber !== undefined) parts.push(`<sub>${escape(atom.atomicNumber)}</sub>`);
     parts.push(escape(atom.element));
     if (atom.subscript !== undefined) parts.push(`<sub>${escape(atom.subscript)}</sub>`);
     if (atom.superscript !== undefined) parts.push(`<sup>${escape(atom.superscript)}</sup>`);

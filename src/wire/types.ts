@@ -1,10 +1,11 @@
 // Canonical wire types for the asciichem-model v1 JSON form.
-// Vendored from asciichem-model schemas/v1/types (tag v0.7.0) —
+// Vendored from asciichem-model schemas/v1/types (tag v0.8.0) —
 // regenerate with scripts/update-model-types.sh, never edit by hand.
 export interface Atom {
   readonly type: "atom";
   readonly element: string;
   readonly isotope?: string;
+  readonly atomicNumber?: string;
   readonly charge?: string;
   readonly subscript?: string;
   readonly oxidationState?: string;

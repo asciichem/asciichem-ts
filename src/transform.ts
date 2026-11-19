@@ -49,6 +49,7 @@ interface AtomCapture {
   kind: "atom";
   element: string;
   isotope: string | null;
+  atomicNumber?: string | null;
   subscript?: string;
   superscript?: string;
   lonePairs?: string;
@@ -183,6 +184,7 @@ class AtomBuilder {
     return new Atom(
       c.element,
       stripMarker(c.isotope),
+      stripMarker(c.atomicNumber),
       stripMarker(c.subscript, "_"),
       charge || oxidation ? undefined : superscript,
       charge,

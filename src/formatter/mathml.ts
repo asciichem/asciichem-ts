@@ -107,7 +107,7 @@ export class MathmlFormatter implements Visitor<XmlElement> {
 
   visitAtom(atom: Atom): XmlElement {
     let base: XmlElement = mi(atom.element);
-    if (atom.isotope !== undefined) base = this.attachIsotopePrefix(base, atom.isotope);
+    if (atom.isotope !== undefined) base = this.attachIsotopePrefix(base, atom.isotope, atom.atomicNumber);
     base = this.wrapLewisPrefix(base, atom);
     base = this.wrapSubAndSuper(base, atom);
     base = this.wrapLewisSuffix(base, atom);
@@ -120,13 +120,16 @@ export class MathmlFormatter implements Visitor<XmlElement> {
     return el("mrow", undefined, [base, mn(atom.ringClosures)]);
   }
 
-  private attachIsotopePrefix(base: XmlElement, isotope: string): XmlElement {
+  private attachIsotopePrefix(base: XmlElement, isotope: string, atomicNumber?: string): XmlElement {
+    // The prescript pair is (left-subscript, left-superscript):
+    // the atomic number sits under the mass number — none when
+    // absent.
     return el("mmultiscripts", undefined, [
       base,
       el("none"),
       el("none"),
       el("mprescripts"),
-      el("none"),
+      atomicNumber !== undefined ? mn(atomicNumber) : el("none"),
       mn(isotope),
     ]);
   }

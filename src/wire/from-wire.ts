@@ -66,6 +66,7 @@ function fromNode(wire: AnyWire): Node {
       return new Atom(
         wire.element as string,
         optionalString(wire.isotope),
+        optionalString((wire as { atomicNumber?: string }).atomicNumber),
         optionalString(wire.subscript),
         optionalString(wire.superscript),
         optionalString(wire.charge),

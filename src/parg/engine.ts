@@ -30,13 +30,13 @@ import { ParseError } from "../errors.js";
 // Version the vendored artifact was built from; load fails loudly on
 // drift so the engine never runs a stale grammar (mirrors
 // PargEngine::PARG_GRAMMAR_VERSION in asciichem-ruby).
-const PARG_GRAMMAR_VERSION = "0.7.0";
+const PARG_GRAMMAR_VERSION = "0.8.0";
 
 // SHA-256 of the vendored artifact bytes — pins the vendored revision
 // byte-exactly (parsanol's own checksum verifies the artifact's
 // grammar-source integrity; this pins the vendored copy).
 const ARTIFACT_SHA256 =
-  "7c1d337555b424dfd8d33a5f021b0553cb2e54ff7af62560ea7e571243016a95";
+  "86a62ebd000b4952a72aa0802be609a16b069e77a2bf888d87ffb609e47498df";
 
 const ENTRY = "formula";
 
@@ -281,6 +281,7 @@ function adaptUnit(unit: unknown): unknown {
 const ATOM_FIELDS: Record<string, string> = {
   element: "element",
   isotope: "isotope",
+  atomic_number: "atomicNumber",
   subscript: "subscript",
   superscript: "superscript",
   lone_pairs: "lonePairs",
