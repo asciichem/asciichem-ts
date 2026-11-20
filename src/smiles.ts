@@ -18,10 +18,11 @@ export function parseSmiles(smiles: string): Formula {
 class SmilesParser {
   private pos = 0;
   private atoms: Atom[] = [];
-  private adjacency: Map<number, BondKind>[] = [];
+  private adjacency: Map<number, { kind: BondKind; ring: boolean; shape: "chain" | "branch" | "ring" }>[] = [];
   private openRings = new Map<string, number>();
   private parent: number | undefined;
   private pendingKind: BondKind | undefined;
+  private pendingShape: "chain" | "branch" | undefined;
   private pendingDirection: "up" | "down" | undefined;
   private edgeDirections = new Map<string, "up" | "down">();
 
@@ -44,6 +45,8 @@ class SmilesParser {
     this.openRings = new Map();
     this.parent = undefined;
     this.pendingKind = undefined;
+    this.pendingDirection = undefined;
+    this.pendingShape = undefined;
 
     this.chain();
 
@@ -54,10 +57,10 @@ class SmilesParser {
 
     const edges: Edge[] = [];
     this.adjacency.forEach((neighbors, index) => {
-      neighbors.forEach((kind, to) => {
+      neighbors.forEach((entry, to) => {
         if (to > index) {
-          const direction = this.edgeDirections.get([index, to].sort().join("-"));
-          edges.push({ from: index, to, kind, direction });
+          const direction = this.edgeDirections.get([index, to].sort((a, b) => a - b).join("-"));
+          edges.push({ from: index, to, kind: entry.kind, direction, shape: entry.shape });
         }
       });
     });
@@ -105,10 +108,15 @@ class SmilesParser {
     const savedDirection = this.pendingDirection;
     this.pendingKind = kind;
     this.pendingDirection = direction;
+    // The branch's FIRST edge is branch-shaped; the tree's inner
+    // chain stays chain-shaped (the linearizer groups only the
+    // branch edge's subtree).
+    this.pendingShape = "branch";
     this.chain();
     this.expect(")");
     this.parent = savedParent;
     this.pendingKind = savedPending;
+    this.pendingShape = undefined;
     this.pendingDirection = savedDirection;
   }
 
@@ -130,7 +138,7 @@ class SmilesParser {
           `bonded ring closures (${kind}) are not representable in the model's ring-closure form`,
         );
       }
-      this.addEdge(opener, this.parent!, kind);
+      this.addEdge(opener, this.parent!, kind, "ring");
     } else {
       this.openRings.set(digit, this.parent!);
     }
@@ -142,7 +150,7 @@ class SmilesParser {
     this.atoms.push(atom);
     this.adjacency.push(new Map());
     if (this.parent !== undefined) {
-      this.addEdge(this.parent, index, this.pendingKind);
+      this.addEdge(this.parent, index, this.pendingKind, this.pendingShape ?? "chain");
       if (this.pendingDirection !== undefined) {
         this.edgeDirections.set(
           [this.parent, index].sort((a, b) => a - b).join("-"),
@@ -153,12 +161,18 @@ class SmilesParser {
     this.parent = index;
     this.pendingKind = undefined;
     this.pendingDirection = undefined;
+    this.pendingShape = undefined;
   }
 
-  private addEdge(from: number, to: number, explicit: BondKind | undefined): void {
+  private addEdge(
+    from: number,
+    to: number,
+    explicit: BondKind | undefined,
+    shape: "chain" | "branch" | "ring" = "chain",
+  ): void {
     const kind = explicit ?? this.defaultKind(from, to);
-    this.adjacency[from].set(to, kind);
-    this.adjacency[to].set(from, kind);
+    this.adjacency[from].set(to, { kind, ring: false, shape });
+    this.adjacency[to].set(from, { kind, ring: false, shape });
   }
 
   private defaultKind(from: number, to: number): BondKind {
