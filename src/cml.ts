@@ -106,7 +106,8 @@ type AtomExtensionField =
   | "oxidationState"
   | "lonePairs"
   | "radicalElectrons"
-  | "ringClosures";
+  | "ringClosures"
+  | "atomParity";
 
 // Atom-attribute channel: model field name → wire attribute name
 // (without the `aci:` prefix), in wire order.
@@ -116,6 +117,9 @@ const ATOM_FIELDS: readonly (readonly [AtomExtensionField, string])[] = [
   ["lonePairs", "lonePairs"],
   ["radicalElectrons", "radicalElectrons"],
   ["ringClosures", "ringClosures"],
+  // The SMILES parity mark rides as stored TH1/TH2 (the wire carries
+  // the mark, not derived R/S).
+  ["atomParity", "atomParity"],
 ];
 
 // Top-level channel element names (the reference TopLevel::HANDLERS
@@ -428,6 +432,7 @@ class MoleculeWalker {
         lonePairs: atom.lonePairs === undefined ? undefined : String(atom.lonePairs),
         radicalElectrons: atom.radicalElectrons === undefined ? undefined : String(atom.radicalElectrons),
         ringClosures: atom.ringClosures,
+        atomParity: atom.chirality,
       },
     });
     this.lastAtom = id;
@@ -845,6 +850,13 @@ function readAtom(element: XNode, prefix: string): { id?: string; atom: Atom } {
       lonePairs === undefined ? undefined : Math.max(leadingInteger(lonePairs), 0),
       radicalElectrons === undefined ? undefined : Math.max(leadingInteger(radicalElectrons), 0),
       attrAci(element, prefix, "ringClosures"),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      attrAci(element, prefix, "atomParity"),
     ),
   };
 }
@@ -885,20 +897,31 @@ function rebuildAtomsAndBonds(
     const index = ids.indexOf(id);
     return index === -1 ? undefined : index;
   };
+  // Digit pairing is the ring-transport signal (aci:ringClosures on
+  // both endpoints — the digits restore onto the atoms and re-spell
+  // the bond). Every other wire bond renders positionally, INCLUDING
+  // continuation bonds whose endpoints sit across a group gap in the
+  // branch-projection shape — the positional-gap guess dropped those.
+  const digitsById = new Map<string, string>();
+  for (const { id, atom } of wireAtoms) {
+    if (id !== undefined && atom.ringClosures !== undefined) digitsById.set(id, atom.ringClosures);
+  }
+  const sharesDigit = (a: string, b: string): boolean => {
+    const first = digitsById.get(a)?.split("") ?? [];
+    const second = digitsById.get(b)?.split("") ?? [];
+    return first.some((digit) => second.includes(digit));
+  };
   const placed = wireBonds.map((bond) => {
     const positions = bond.refs.map(positionOf).filter((position): position is number => position !== undefined);
     positions.sort((a, b) => a - b);
     const later = positions[positions.length - 1] ?? 0;
-    const span = positions.length > 0 ? later - positions[0] : 0;
-    return { bond, later, span };
+    return { bond, later, ring: bond.refs.length === 2 && sharesDigit(bond.refs[0], bond.refs[1]) };
   });
   // Descending later position so earlier insertions don't shift the
   // pending ones.
   placed.sort((a, b) => b.later - a.later);
-  for (const { bond, later, span } of placed) {
-    // A ring bond connects non-adjacent atoms; its endpoints span a
-    // gap, and the aci:ringClosures digits re-spell it.
-    if (span > 1) continue;
+  for (const { bond, later, ring } of placed) {
+    if (ring) continue;
     nodes.splice(later, 0, new Bond(kindFromOrder(bond.order) as Bond["kind"]));
   }
   molecule.nodes.splice(0, molecule.nodes.length, ...nodes);
