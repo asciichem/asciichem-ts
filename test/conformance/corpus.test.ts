@@ -245,6 +245,20 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
     }
   });
 
+  // The smiles family's recorded text column (the branch-projection
+  // text, asciichem-ruby#208's recording): the smiles-ingested model's
+  // canonical text matches the cross-runtime recording byte-for-byte.
+  const smilesTextCases = fixtures.filter(
+    (f) => typeof f.smiles === "string" && typeof f.text === "string" && f.parses,
+  );
+  describe.skipIf(smilesTextCases.length === 0)("smiles recorded text", () => {
+    for (const fixture of smilesTextCases) {
+      it(fixture.id, () => {
+        expect(parseSmiles(fixture.smiles as string).toText()).toBe(fixture.text);
+      });
+    }
+  });
+
   describe("SMILES ingestion", () => {
     for (const fixture of [...smilesCases, ...perceptionCases]) {
       it(fixture.id, () => {
