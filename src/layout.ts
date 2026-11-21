@@ -360,5 +360,18 @@ function idealPoint(sides: number, memberIndex: number, shift: number): Point {
 
 export function layoutMolecule(molecule: Molecule): { graph: LayoutGraph; positions: Point[] } {
   const graph = walkMolecule(molecule);
+  // Authored coordinates (the CML x2/y2 round-trip, molfile-carried)
+  // take precedence over every computed layout — the depiction-hint
+  // override: the renderer speaks the molecule's own geometry when it
+  // carries one.
+  if (
+    graph.atoms.length > 0 &&
+    graph.atoms.every((atom) => atom.x2 !== undefined && atom.y2 !== undefined)
+  ) {
+    return {
+      graph,
+      positions: graph.atoms.map((atom) => ({ x: atom.x2 as number, y: atom.y2 as number })),
+    };
+  }
   return { graph, positions: placeGraph(graph) };
 }
