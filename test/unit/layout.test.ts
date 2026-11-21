@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseText } from "../../src/parser.js";
 import { BOND_LENGTH, layoutMolecule } from "../../src/layout.js";
-import { Molecule } from "../../src/model.js";
+import { Atom, Molecule } from "../../src/model.js";
 import type { Point } from "../../src/layout.js";
 
 function placedMolecule(source: string): { positions: Point[]; atomCount: number } {
@@ -81,5 +81,38 @@ describe("depiction placement", () => {
     const { graph } = layoutMolecule(molecule);
     expect(graph.atoms).toHaveLength(6);
     expect(graph.bonds).toHaveLength(6);
+  });
+});
+
+describe("authored coordinates", () => {
+  it("overrides the computed layout when every atom carries x2/y2", () => {
+    const formula = parseText("C-C");
+    const molecule = formula.nodes.find((n) => n instanceof Molecule);
+    if (!(molecule instanceof Molecule)) throw new Error("no molecule");
+    const nodes = molecule.nodes.map((node, index) =>
+      node instanceof Atom
+        ? node.patch({ x2: 10 + index * 56, y2: 20 - index * 7 })
+        : node,
+    );
+    const { positions } = layoutMolecule(new Molecule(nodes));
+    // The map index counts the bond node between the atoms: the
+    // second atom carries (122, 6).
+    expect(positions).toEqual([
+      { x: 10, y: 20 },
+      { x: 122, y: 6 },
+    ]);
+  });
+
+  it("layouts normally when only some atoms carry coordinates", () => {
+    const formula = parseText("C-C");
+    const molecule = formula.nodes.find((n) => n instanceof Molecule);
+    if (!(molecule instanceof Molecule)) throw new Error("no molecule");
+    const nodes = molecule.nodes.map((node, index) =>
+      node instanceof Atom && index === 0 ? node.patch({ x2: 10, y2: 20 }) : node,
+    );
+    const { positions } = layoutMolecule(new Molecule(nodes));
+    // The computed layout ignores the partial authoring: the first
+    // atom lands where the placer puts it, not at (10, 20).
+    expect(positions[0]).not.toEqual({ x: 10, y: 20 });
   });
 });
