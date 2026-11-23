@@ -489,6 +489,9 @@ function emitMolecule(
   // molecule extensions).
   if (molecule.state !== undefined) {
     leptris.setAttributeSync(element, `${ACI_PREFIX}:state`, molecule.state);
+  }
+  if (molecule.phase !== undefined) {
+    leptris.setAttributeSync(element, `${ACI_PREFIX}:phase`, molecule.phase);
     extensions = true;
   }
   if (atoms.length > 0) {
@@ -825,7 +828,12 @@ function readMolecule(element: XNode, prefix: string): Molecule {
   // values are ignored (forward compatibility).
   const rawState = attrAci(element, prefix, "state");
   const state = rawState === "precipitate" || rawState === "gas" ? rawState : undefined;
-  const molecule = new Molecule([], coefficient, undefined, state);
+  const rawPhase = attrAci(element, prefix, "phase");
+  const phase =
+    rawPhase === "aqueous" || rawPhase === "liquid" || rawPhase === "solid" || rawPhase === "gas"
+      ? rawPhase
+      : undefined;
+  const molecule = new Molecule([], coefficient, undefined, state, phase);
   rebuildAtomsAndBonds(molecule, wireAtoms, wireBonds);
   rebuildGroups(molecule, groups);
   return molecule;

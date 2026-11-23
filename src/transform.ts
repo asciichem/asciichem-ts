@@ -35,6 +35,8 @@ import {
   SpectrumPeak,
   StateKind,
   STATES,
+  PhaseKind,
+  PHASE_TOKENS,
   StereoKind,
   Text,
   ZMatrix,
@@ -83,6 +85,7 @@ interface MoleculeCapture {
   stereo?: string;
   coefficient?: string;
   state?: string;
+  phase?: string;
   units: (AtomCapture | BondCapture | GroupCapture)[];
 }
 interface AnnotatedCapture {
@@ -297,6 +300,7 @@ function buildMolecule(c: MoleculeCapture): Molecule {
     nilToUndefined(c.coefficient),
     c.stereo ? STEREO_MAP[c.stereo] : undefined,
     c.state ? STATE_MAP[c.state] : undefined,
+    c.phase ? PHASE_TOKENS[c.phase] : undefined,
   );
 }
 

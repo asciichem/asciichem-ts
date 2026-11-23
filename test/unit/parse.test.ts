@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseText } from "../../src/parser.js";
 import { ParseError } from "../../src/errors.js";
+import { initCml } from "../../src/index.js";
 import { ARROW_KINDS, ArrowKind, Formula, Molecule, Reaction } from "../../src/model.js";
 import "../../src/index.js";
 
@@ -166,5 +167,39 @@ describe("donation arrows", () => {
       expect(parseText(source).toText()).toBe(source);
       expect((parseText(source).nodes[0] as Reaction).arrow).toBe(kind);
     }
+  });
+});
+
+describe("phase states", () => {
+  it.each([
+    ["NaCl(aq)", "aqueous"],
+    ["H_2O(l)", "liquid"],
+    ["Fe(s)", "solid"],
+    ["CO_2(g)", "gas"],
+    ["Ca(OH)_2(aq)", "aqueous"],
+    ["AgCl(s) v", "solid"],
+  ] as const)("parses %s as %s and round-trips verbatim", (source, phase) => {
+    expect(parseText(source).toText()).toBe(source);
+    expect((parseText(source).nodes[0] as Molecule).phase).toBe(phase);
+  });
+
+  it("keeps the capitalised group reading (Fe(S) stays a sulfur group)", () => {
+    const molecule = parseText("Fe(S)").nodes[0] as Molecule;
+    expect(molecule.phase).toBeUndefined();
+  });
+
+  it("rejects a spaced phase", () => {
+    expect(() => parseText("AgCl (aq)")).toThrow(ParseError);
+  });
+
+  it("round-trips through the wire", () => {
+    const formula = parseText("NaCl(aq)");
+    expect(JSON.stringify(formula.toModelJSON())).toContain('"phase":"aqueous"');
+  });
+
+  it("round-trips through CML (the aci:phase extension)", async () => {
+    await initCml();
+    const cml = parseText("NaCl(aq)").toCml();
+    expect(cml).toContain("aci:phase");
   });
 });

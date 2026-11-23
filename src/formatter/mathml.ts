@@ -24,8 +24,7 @@ import {
   Text,
   Visitor,
   ZMatrix,
-  registerRenderer,
-} from "../model.js";
+  registerRenderer,  PHASE_SPELLINGS, } from "../model.js";
 import { parseText } from "../parser.js";
 import { AsciiChemError } from "../errors.js";
 
@@ -109,6 +108,9 @@ export class MathmlFormatter implements Visitor<XmlElement> {
     if (molecule.coefficient !== undefined) children.push(mn(molecule.coefficient));
     children.push(...molecule.nodes.map((n) => n.accept(this)));
     // The mhchem phase arrow after the formula: precipitate ↓, gas ↑.
+    if (molecule.phase !== undefined) {
+      children.push(mtext(PHASE_SPELLINGS[molecule.phase]));
+    }
     if (molecule.state !== undefined) {
       children.push(mo(molecule.state === "precipitate" ? "↓" : "↑"));
     }
