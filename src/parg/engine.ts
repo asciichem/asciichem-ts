@@ -36,7 +36,7 @@ const PARG_GRAMMAR_VERSION = "0.11.0";
 // byte-exactly (parsanol's own checksum verifies the artifact's
 // grammar-source integrity; this pins the vendored copy).
 const ARTIFACT_SHA256 =
-  "ca7882027bb4b9c2c82ca2722dad3f9c6331486957cd191b7a3b61d0e74c3e8c";
+  "4f6c4fdecacbfff720dbdd755b4b5654effd4818390a57d5f4b5df3e2ec9ac01";
 
 const ENTRY = "formula";
 
