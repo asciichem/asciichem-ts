@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseText } from "../../src/parser.js";
 import { ParseError } from "../../src/errors.js";
-import { Formula, Molecule, Reaction } from "../../src/model.js";
+import { ARROW_KINDS, ArrowKind, Formula, Molecule, Reaction } from "../../src/model.js";
 import "../../src/index.js";
 
 describe("parseText", () => {
@@ -140,5 +140,31 @@ describe("the standalone structure reference (grammar v0.6.0)", () => {
 
   it("rejects dot-disconnected components with guidance", () => {
     expect(() => parseText('@smiles("CC.O")')).toThrow(/one connected structure/);
+  });
+});
+
+describe("donation arrows", () => {
+  it("parses the donation form and round-trips verbatim", () => {
+    expect(parseText("A <=>+ B").toText()).toBe("A <=>+ B");
+    expect((parseText("A <=>+ B").nodes[0] as Reaction).arrow).toBe("donation");
+  });
+
+  it("parses the removal form and round-trips verbatim", () => {
+    expect(parseText("A <=>- B").toText()).toBe("A <=>- B");
+    expect((parseText("A <=>- B").nodes[0] as Reaction).arrow).toBe("removal");
+  });
+
+  it("carries conditions after the marker", () => {
+    const reaction = parseText("A <=>+[Fe] B").nodes[0] as Reaction;
+    expect(reaction.arrow).toBe("donation");
+    expect(reaction.conditions?.above).toBe("Fe");
+  });
+
+  it("reads every ARROW_KINDS entry back from its ascii spelling", () => {
+    for (const kind of Object.keys(ARROW_KINDS) as ArrowKind[]) {
+      const source = `A ${ARROW_KINDS[kind].ascii} B`;
+      expect(parseText(source).toText()).toBe(source);
+      expect((parseText(source).nodes[0] as Reaction).arrow).toBe(kind);
+    }
   });
 });

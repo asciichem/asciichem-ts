@@ -3,7 +3,13 @@
 // extension point for new output formats (add visit_* methods).
 import type { WireNode } from "./wire/types.js";
 
-export type ArrowKind = "forward" | "reverse" | "equilibrium" | "resonance";
+export type ArrowKind =
+  | "forward"
+  | "reverse"
+  | "equilibrium"
+  | "resonance"
+  | "donation"
+  | "removal";
 export type BondKind =
   | "single"
   | "double"
@@ -33,6 +39,8 @@ export const ARROW_KINDS: Record<ArrowKind, { ascii: string; wire: ArrowKind; en
   forward: { ascii: "->", wire: "forward", entity: "→" },
   reverse: { ascii: "<-", wire: "reverse", entity: "←" },
   equilibrium: { ascii: "<=>", wire: "equilibrium", entity: "⇌" },
+  donation: { ascii: "<=>+", wire: "donation", entity: "⇌⁺" },
+  removal: { ascii: "<=>-", wire: "removal", entity: "⇌⁻" },
   resonance: { ascii: "<->", wire: "resonance", entity: "↔" },
 };
 

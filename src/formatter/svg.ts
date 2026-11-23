@@ -262,6 +262,10 @@ function arrowGlyph(kind: keyof typeof ARROW_KINDS): string {
       return "←";
     case "equilibrium":
       return "⇌";
+    case "donation":
+      return "⇌⁺";
+    case "removal":
+      return "⇌⁻";
     case "resonance":
       return "↔";
   }
