@@ -13,7 +13,7 @@ env:
   # resolver, citation, CLI + the engine-scaled linter; re-pointed to
   # carry the @chebi no-validator fixture fix).
   CORPUS_REF: v0.21.0
-  MODEL_REF: v0.9.0
+  MODEL_REF: v0.10.0
 
 jobs:
   test:
