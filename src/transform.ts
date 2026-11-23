@@ -371,6 +371,8 @@ function buildGroup(c: GroupCapture): Group {
 // -- reactions ---------------------------------------------------------------
 
 const ARROW_BY_TOKEN: Record<string, ArrowKind> = {
+  "<=>+": "donation",
+  "<=>-": "removal",
   "<=>": "equilibrium",
   "<->": "resonance",
   "->": "forward",

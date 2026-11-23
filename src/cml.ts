@@ -1021,7 +1021,7 @@ function spliceGroup(
 
 function readReaction(element: XNode, prefix: string): Reaction {
   const arrowWire = attr(element, "type") ?? attr(element, "title");
-  const arrow = (["forward", "reverse", "equilibrium", "resonance"] as const).includes(arrowWire as Reaction["arrow"])
+  const arrow = (["forward", "reverse", "equilibrium", "resonance", "donation", "removal"] as const).includes(arrowWire as Reaction["arrow"])
     ? (arrowWire as Reaction["arrow"])
     : "forward";
   const reactants: Molecule[] = [];

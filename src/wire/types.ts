@@ -159,7 +159,13 @@ export interface Reaction {
   readonly type: "reaction";
   readonly reactants: Molecule[];
   readonly products: Molecule[];
-  readonly arrow?: "forward" | "reverse" | "equilibrium" | "resonance";
+  readonly arrow?:
+    | "forward"
+    | "reverse"
+    | "equilibrium"
+    | "resonance"
+    | "donation"
+    | "removal";
   readonly conditions?: {
     above?: string;
     below?: string;
