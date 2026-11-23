@@ -27,8 +27,7 @@ import {
   Text,
   Visitor,
   ZMatrix,
-  registerRenderer,
-} from "../model.js";
+  registerRenderer,  PHASE_SPELLINGS, } from "../model.js";
 
 // The cell-parameter labels — the reference's CELL_LABELS[:latex]
 // (the Greek angle names spelled as LaTeX macros).
@@ -61,9 +60,10 @@ export class LatexFormatter implements Visitor<string> {
     const stereo = molecule.stereo ? `(${molecule.stereoLetter})-` : "";
     const body = molecule.nodes.map((n) => this.render(n)).join("");
     // mhchem's own output form for the phase mark.
+    const phase = molecule.phase ? `\\text{${PHASE_SPELLINGS[molecule.phase]}}` : "";
     const state = molecule.state === "precipitate" ? "\\downarrow" : molecule.state === "gas" ? "\\uparrow" : "";
-    if (this.insideCe) return `${stereo}${prefix}${body}${state}`;
-    return `\\ce{${stereo}${prefix}${body}${state}}`;
+    if (this.insideCe) return `${stereo}${prefix}${body}${phase}${state}`;
+    return `\\ce{${stereo}${prefix}${body}${phase}${state}}`;
   }
 
   visitAtom(atom: Atom): string {

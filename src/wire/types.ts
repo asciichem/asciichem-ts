@@ -132,6 +132,7 @@ export interface Molecule {
   readonly coefficient?: string;
   readonly stereo?: "R" | "S" | "E" | "Z" | "alpha" | "beta";
   readonly state?: "precipitate" | "gas";
+  readonly phase?: "aqueous" | "liquid" | "solid" | "gas";
   readonly identifiers?: Identifier[];
 }
 

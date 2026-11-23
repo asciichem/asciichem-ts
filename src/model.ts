@@ -46,6 +46,22 @@ export const ARROW_KINDS: Record<ArrowKind, { ascii: string; wire: ArrowKind; en
 
 export type StateKind = "precipitate" | "gas";
 
+export type PhaseKind = "aqueous" | "liquid" | "solid" | "gas";
+
+export const PHASE_TOKENS: Record<string, PhaseKind> = {
+  aq: "aqueous",
+  l: "liquid",
+  s: "solid",
+  g: "gas",
+};
+
+export const PHASE_SPELLINGS: Record<PhaseKind, string> = {
+  aqueous: "(aq)",
+  liquid: "(l)",
+  solid: "(s)",
+  gas: "(g)",
+};
+
 export const STATE_GLYPHS: Record<StateKind, string> = {
   precipitate: "v",
   gas: "^",
@@ -364,6 +380,7 @@ export class Molecule extends Node {
     readonly coefficient?: string,
     readonly stereo?: StereoKind,
     readonly state?: StateKind,
+    readonly phase?: PhaseKind,
     readonly names: Name[] = [],
     readonly identifiers: Identifier[] = [],
     public title?: string,

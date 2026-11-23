@@ -27,8 +27,7 @@ import {
   Text,
   Visitor,
   ZMatrix,
-  registerRenderer,
-} from "../model.js";
+  registerRenderer,  PHASE_SPELLINGS, } from "../model.js";
 
 // The cell-parameter labels, per construct — the reference's
 // Crystal::CELL_LABELS[:html] (a, b, c, then the Greek angle names).
@@ -56,8 +55,9 @@ export class HtmlFormatter implements Visitor<string> {
     const stereo = molecule.stereo ? `(${molecule.stereoLetter})-` : "";
     const body = molecule.nodes.map((n) => this.render(n)).join("");
     // The phase arrow as its HTML entity.
+    const phase = molecule.phase ? PHASE_SPELLINGS[molecule.phase] : "";
     const state = molecule.state === "precipitate" ? "&darr;" : molecule.state === "gas" ? "&uarr;" : "";
-    return `${stereo}${prefix}${body}${state}`;
+    return `${stereo}${prefix}${body}${phase}${state}`;
   }
 
   visitAtom(atom: Atom): string {

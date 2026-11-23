@@ -23,6 +23,7 @@ import {
   Visitor,
   ZMatrix,
   registerRenderer,
+  PHASE_SPELLINGS,
 } from "../model.js";
 import { STATE_GLYPHS } from "../model.js";
 import { bondKinds, type KekuleKind } from "../kekule.js";
@@ -48,13 +49,18 @@ export class TextFormatter implements Visitor<string> {
     this.kekule = bondKinds(molecule);
     const body = molecule.nodes.map((n) => this.render(n)).join("");
     this.kekule = previous;
-    return `${stereo}${prefix}${body}${this.stateMark(molecule)}${this.moleculeAnnotations(molecule)}`;
+    return `${stereo}${prefix}${body}${this.phaseMark(molecule)}${this.stateMark(molecule)}${this.moleculeAnnotations(molecule)}`;
   }
 
   // The authored phase mark, whitespace-separated: `AgCl v` / `AgCl ^`.
   // The round-trip contract renders the glyph the grammar reads.
   private stateMark(molecule: Molecule): string {
     return molecule.state ? ` ${STATE_GLYPHS[molecule.state]}` : "";
+  }
+
+  // The authored phase, tight to the units (the grammar's mhchem form).
+  private phaseMark(molecule: Molecule): string {
+    return molecule.phase ? PHASE_SPELLINGS[molecule.phase] : "";
   }
 
   private moleculeAnnotations(molecule: Molecule): string {

@@ -113,6 +113,7 @@ class ToWireVisitor implements Visitor<WireNode> {
     if (node.coefficient !== undefined) wire.coefficient = digitsOrNil(node.coefficient);
     if (node.stereo !== undefined) wire.stereo = node.stereo;
     if (node.state !== undefined) wire.state = node.state;
+    if (node.phase !== undefined) wire.phase = node.phase;
     if (node.identifiers.length > 0) {
       wire.identifiers = node.identifiers.map((i) => {
         const w: Writable<WireIdentifier> = {

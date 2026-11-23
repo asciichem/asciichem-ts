@@ -22,8 +22,7 @@ import {
   Text,
   Visitor,
   ZMatrix,
-  registerRenderer,
-} from "../model.js";
+  registerRenderer,  PHASE_SPELLINGS, } from "../model.js";
 
 const FONT_SIZE = 16;
 const CHAR_WIDTH = FONT_SIZE * 0.62; // monospace-ish estimate
@@ -119,6 +118,9 @@ export class SvgFormatter implements Visitor<string> {
       if (node.coefficient !== undefined) segments.push(seg(node.coefficient, 0));
       for (const child of node.nodes) segments.push(...this.segmentsFor(child));
       // The unicode phase arrow, the glyph MathML typesets.
+      if (node.phase !== undefined) {
+        segments.push(seg(PHASE_SPELLINGS[node.phase], 0));
+      }
       if (node.state !== undefined) {
         segments.push(seg(" ", 0));
         segments.push(seg(node.state === "precipitate" ? "↓" : "↑", 0));
