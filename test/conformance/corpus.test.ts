@@ -74,6 +74,7 @@ interface Fixture {
   mathml?: string;
   html?: string;
   latex?: string;
+  referenceRender?: boolean;
   atoms?: number;
   bonds?: number;
   // identifiers family
@@ -340,19 +341,29 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   // L2: MathML golden parity — exact-string comparison against the
   // reference implementation's output (single-contract rule).
   describe("L2 MathML golden", () => {
-    for (const fixture of fixtures.filter((f) => typeof f.mathml === "string")) {
+    for (const fixture of fixtures.filter(
+      (f) => typeof f.mathml === "string" && !f.referenceRender,
+    )) {
       it(fixture.id, () => {
         expect(renderMathml(parseText(fixture.input as string)), fixture.id).toBe(fixture.mathml);
       });
     }
 
-    for (const fixture of fixtures.filter((f) => typeof f.html === "string")) {
+    // referenceRender rows embed the reference's math-engine output
+    // (Plurimath); this implementation degrades embedded math by
+    // contract (corpus schema: "the skip is the documented
+    // degradation, not a silent drop").
+    for (const fixture of fixtures.filter(
+      (f) => typeof f.html === "string" && !f.referenceRender,
+    )) {
       it(`html ${fixture.id}`, () => {
         expect(parseText(fixture.input as string).toHtml(), fixture.id).toBe(fixture.html);
       });
     }
 
-    for (const fixture of fixtures.filter((f) => typeof f.latex === "string")) {
+    for (const fixture of fixtures.filter(
+      (f) => typeof f.latex === "string" && !f.referenceRender,
+    )) {
       it(`latex ${fixture.id}`, () => {
         expect(parseText(fixture.input as string).toLatex(), fixture.id).toBe(fixture.latex);
       });
