@@ -106,18 +106,28 @@ export class LatexFormatter implements Visitor<string> {
   }
 
   visitReaction(reaction: Reaction): string {
+    // The reference's composition: ONE \ce{} over the whole reaction,
+    // the arrow spelled verbatim inside it — mhchem typesets the
+    // arrow itself, so the split-per-term form loses that context.
+    const wasInsideCe = this.insideCe;
+    this.insideCe = true;
     const left = reaction.reactants.map((n) => this.render(n)).join(" + ");
     const right = reaction.products.map((n) => this.render(n)).join(" + ");
     const arrow = arrowFor(reaction.arrow);
     const conds = reaction.conditions;
-    if (conds === undefined) return `${left} ${arrow} ${right}`;
-    const above = conditionsBracket(conds.above);
-    const below = conditionsBracket(conds.below);
-    return `${left} ${arrow}${above}${below} ${right}`;
+    const conditions =
+      conds === undefined
+        ? ""
+        : `${conditionsBracket(conds.above)}${conditionsBracket(conds.below)}`;
+    const inner = `${left} ${arrow}${conditions} ${right}`;
+    this.insideCe = wasInsideCe;
+    return wasInsideCe ? inner : `\ce{${inner}}`;
   }
 
   visitReactionCascade(cascade: ReactionCascade): string {
     if (cascade.steps.length === 0) return "";
+    const wasInsideCe = this.insideCe;
+    this.insideCe = true;
     const head = cascade.steps[0];
     let out = head.reactants.map((n) => this.render(n)).join(" + ");
     for (const step of cascade.steps) {
@@ -130,7 +140,8 @@ export class LatexFormatter implements Visitor<string> {
       }
       out += ` ${step.products.map((n) => this.render(n)).join(" + ")}`;
     }
-    return out;
+    this.insideCe = wasInsideCe;
+    return wasInsideCe ? out : `\ce{${out}}`;
   }
 
   visitElectronConfiguration(ec: ElectronConfiguration): string {
@@ -264,6 +275,10 @@ function bracketChars(kind: BracketKind): [string, string] {
 
 function arrowFor(kind: Reaction["arrow"]): string {
   switch (kind) {
+    case "donation":
+      return "<=>+";
+    case "removal":
+      return "<=>-";
     case "reverse":
       return "<-";
     case "equilibrium":

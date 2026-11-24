@@ -72,6 +72,8 @@ interface Fixture {
   molfileRoundTrip?: boolean;
   cmlRoundTrip?: boolean;
   mathml?: string;
+  html?: string;
+  latex?: string;
   atoms?: number;
   bonds?: number;
   // identifiers family
@@ -341,6 +343,18 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
     for (const fixture of fixtures.filter((f) => typeof f.mathml === "string")) {
       it(fixture.id, () => {
         expect(renderMathml(parseText(fixture.input as string)), fixture.id).toBe(fixture.mathml);
+      });
+    }
+
+    for (const fixture of fixtures.filter((f) => typeof f.html === "string")) {
+      it(`html ${fixture.id}`, () => {
+        expect(parseText(fixture.input as string).toHtml(), fixture.id).toBe(fixture.html);
+      });
+    }
+
+    for (const fixture of fixtures.filter((f) => typeof f.latex === "string")) {
+      it(`latex ${fixture.id}`, () => {
+        expect(parseText(fixture.input as string).toLatex(), fixture.id).toBe(fixture.latex);
       });
     }
   });
