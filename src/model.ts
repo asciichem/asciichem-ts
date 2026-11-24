@@ -138,6 +138,14 @@ export abstract class Node {
     return renderWith<string>("svg", this);
   }
 
+  toHtml(): string {
+    return renderWith<string>("html", this);
+  }
+
+  toLatex(): string {
+    return renderWith<string>("latex", this);
+  }
+
   toStructuralSvg(): string {
     return renderWith<string>("structural-svg", this);
   }
