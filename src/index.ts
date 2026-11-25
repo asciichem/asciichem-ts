@@ -75,6 +75,7 @@ export {
   type InchiIdentity,
 } from "./inchi.js";
 export { chemomerAvailable, registerChemomerEngine } from "./inchi-chemomer.js";
+export { plurimathAvailable, registerPlurimathMath } from "./math-plurimath.js";
 export {
   runLinter,
   hasLintErrors,

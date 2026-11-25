@@ -28,6 +28,7 @@ import {
   Visitor,
   ZMatrix,
   registerRenderer,  PHASE_SPELLINGS, } from "../model.js";
+import { latexForSource } from "../math-plurimath.js";
 
 // The cell-parameter labels — the reference's CELL_LABELS[:latex]
 // (the Greek angle names spelled as LaTeX macros).
@@ -149,8 +150,12 @@ export class LatexFormatter implements Visitor<string> {
     return `\\ce{${inner}}`;
   }
 
+  // The reference renders `$#{formula.to_latex}$` (Plurimath LaTeX,
+  // braced subscripts). With the plurimath math extra installed the
+  // engine matches byte-for-byte; without it the raw source renders.
   visitEmbeddedMath(em: EmbeddedMath): string {
-    return `$${em.source}$`;
+    const latex = latexForSource(em.source);
+    return `$${latex ?? em.source}$`;
   }
 
   visitText(text: Text): string {
