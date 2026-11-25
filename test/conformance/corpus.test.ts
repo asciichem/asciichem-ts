@@ -71,6 +71,7 @@ interface Fixture {
   inchi?: string;
   molfileRoundTrip?: boolean;
   cmlRoundTrip?: boolean;
+  text?: string;
   mathml?: string;
   html?: string;
   latex?: string;
@@ -723,7 +724,9 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
         expect(fixture.parses, `${fixture.id} must parse`).toBe(true);
         const input = fixture.input as string;
         const cml = parseText(input).toCml();
-        expect(parseCmlToFormula(cml).toText(), fixture.id).toBe(input);
+        // An alias-spelling input lands on the canonical text (the
+        // fixture's `text` field records it; defaults to the input).
+        expect(parseCmlToFormula(cml).toText(), fixture.id).toBe(fixture.text ?? input);
       });
     }
   });
