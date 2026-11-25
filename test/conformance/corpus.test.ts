@@ -28,6 +28,7 @@ import { inchiEngine } from "../../src/inchi.js";
 import { initCml, parseCmlToFormula } from "../../src/cml.js";
 import { runCli } from "../../src/cli.js";
 import { chemomerAvailable, registerChemomerEngine, rinchiChemomer, type RinchiSurface } from "../../src/inchi-chemomer.js";
+import { plurimathAvailable, registerPlurimathMath } from "../../src/math-plurimath.js";
 import {
   ResolverRegistry,
   PubChemAdapter,
@@ -342,20 +343,28 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   // L2: MathML golden parity — exact-string comparison against the
   // reference implementation's output (single-contract rule).
   describe("L2 MathML golden", () => {
+    // referenceRender rows embed the reference's math-engine output
+    // (Plurimath). The math-less posture skips them by contract
+    // (corpus schema: "the skip is the documented degradation, not a
+    // silent drop"); with the plurimath math extra installed the
+    // engine renders embedded math byte-identically and the rows go
+    // live — the same two-posture shape as the identity cases.
+    const mathPosture: "none" | "plurimath" = plurimathAvailable() ? "plurimath" : "none";
+    beforeAll(async () => {
+      if (mathPosture === "plurimath") await registerPlurimathMath();
+    });
+    const referenceRenderLive = mathPosture === "plurimath";
+
     for (const fixture of fixtures.filter(
-      (f) => typeof f.mathml === "string" && !f.referenceRender,
+      (f) => typeof f.mathml === "string" && (!f.referenceRender || referenceRenderLive),
     )) {
       it(fixture.id, () => {
         expect(renderMathml(parseText(fixture.input as string)), fixture.id).toBe(fixture.mathml);
       });
     }
 
-    // referenceRender rows embed the reference's math-engine output
-    // (Plurimath); this implementation degrades embedded math by
-    // contract (corpus schema: "the skip is the documented
-    // degradation, not a silent drop").
     for (const fixture of fixtures.filter(
-      (f) => typeof f.html === "string" && !f.referenceRender,
+      (f) => typeof f.html === "string" && (!f.referenceRender || referenceRenderLive),
     )) {
       it(`html ${fixture.id}`, () => {
         expect(parseText(fixture.input as string).toHtml(), fixture.id).toBe(fixture.html);
@@ -363,7 +372,7 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
     }
 
     for (const fixture of fixtures.filter(
-      (f) => typeof f.latex === "string" && !f.referenceRender,
+      (f) => typeof f.latex === "string" && (!f.referenceRender || referenceRenderLive),
     )) {
       it(`latex ${fixture.id}`, () => {
         expect(parseText(fixture.input as string).toLatex(), fixture.id).toBe(fixture.latex);

@@ -27,12 +27,53 @@ import {
   registerRenderer,  PHASE_SPELLINGS, } from "../model.js";
 import { parseText } from "../parser.js";
 import { AsciiChemError } from "../errors.js";
+import * as leptris from "leptris";
+import { mathmlForSource } from "../math-plurimath.js";
 
 const MATHML_NS = "http://www.w3.org/1998/Math/MathML";
 
 type XmlElement =
   | { name: string; attrs?: Record<string, string>; text: string }
   | { name: string; attrs?: Record<string, string>; children: XmlElement[] };
+
+// The engine's MathML grafts the way the reference does: each
+// top-level child of the engine's <math> re-serializes into the
+// formula's mrow with the namespace re-declared on it. The parse
+// rides leptris (the mandated XML layer); conversion is strict — a
+// mixed-content element raises rather than rendering wrong bytes.
+function graftMathml(engineMml: string): XmlElement {
+  const doc = leptris.loadSync(engineMml);
+  try {
+    const root = leptris.treeSync(doc);
+    const children = root.children
+      .filter((child): child is Extract<typeof child, { kind: "element" }> => child.kind === "element")
+      .map((child) => convertElement(child, true));
+    return el("mrow", undefined, children);
+  } finally {
+    leptris.closeSync(doc);
+  }
+}
+
+type LeptNode = ReturnType<typeof leptris.treeSync>["children"][number];
+type LeptElement = Extract<LeptNode, { kind: "element" }>;
+
+function convertElement(node: LeptElement, topLevel: boolean): XmlElement {
+  const attrs: Record<string, string> = {};
+  if (topLevel) attrs.xmlns = node.namespaceURI ?? MATHML_NS;
+  for (const [name, value] of node.attributes) {
+    if (name === "xmlns") continue;
+    attrs[name] = value;
+  }
+  const texts = node.children.filter((child) => child.kind === "text" || child.kind === "cdata");
+  const elements = node.children.filter((child): child is LeptElement => child.kind === "element");
+  if (elements.length === 0) {
+    return { name: node.localName, attrs, text: texts.map((t) => ("text" in t ? t.text : "")).join("") };
+  }
+  if (texts.length > 0) {
+    throw new AsciiChemError(`mixed-content MathML element <${node.localName}> cannot be grafted`);
+  }
+  return { name: node.localName, attrs, children: elements.map((child) => convertElement(child, false)) };
+}
 
 function escapeText(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -240,12 +281,17 @@ export class MathmlFormatter implements Visitor<XmlElement> {
     return el("mrow", undefined, children);
   }
 
-  // The reference embeds Plurimath-rendered MathML here; this port
-  // has no AsciiMath engine, so the source degrades to <mtext>. The
-  // gap is spec'd (test/unit/mathml.test.ts) and tracked in
-  // TODO.impl/61 until an engine lands.
+  // The reference embeds Plurimath-rendered MathML here (parsed into
+  // the mml gem and re-serialized: each top-level child grafted into
+  // the mrow with the namespace re-declared). With the plurimath
+  // math extra installed the same graft runs here (the engine's
+  // MathML parses through leptris — every byte of XML parsing rides
+  // the leptris engine); without it the source degrades to <mtext>,
+  // spec'd (test/unit/mathml.test.ts).
   visitEmbeddedMath(em: EmbeddedMath): XmlElement {
-    return mtext(em.source);
+    const mml = mathmlForSource(em.source);
+    if (mml === null) return mtext(em.source);
+    return graftMathml(mml);
   }
 
   visitText(text: Text): XmlElement {

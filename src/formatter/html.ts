@@ -28,6 +28,7 @@ import {
   Visitor,
   ZMatrix,
   registerRenderer,  PHASE_SPELLINGS, } from "../model.js";
+import { mathmlForSource } from "../math-plurimath.js";
 
 // The cell-parameter labels, per construct — the reference's
 // Crystal::CELL_LABELS[:html] (a, b, c, then the Greek angle names).
@@ -117,7 +118,14 @@ export class HtmlFormatter implements Visitor<string> {
     return ec.orbitals.map(([orb, occ]) => `${escape(orb)}<sup>${escape(occ)}</sup>`).join(" ");
   }
 
+  // The reference embeds the Plurimath MathML verbatim here. With the
+  // plurimath math extra installed the engine renders it
+  // byte-identically; without it the source degrades to <mtext>
+  // (the corpus's referenceRender rows skip — the documented
+  // degradation, not a silent drop).
   visitEmbeddedMath(em: EmbeddedMath): string {
+    const mml = mathmlForSource(em.source);
+    if (mml !== null) return mml;
     return `<math><mtext>${escape(em.source)}</mtext></math>`;
   }
 
