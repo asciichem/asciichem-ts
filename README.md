@@ -36,7 +36,7 @@ the corpus suite with the math goldens live; the default install keeps
 the math-less posture, where the source degrades):
 
 ```sh
-npm install @plurimath/plurimath-ts   # the math engine (native TS Plurimath)
+npm install @plurimath/plurimath   # the math engine (native TS Plurimath)
 await registerPlurimathMath();        # before rendering (warms the XML layer)
 ```
 
@@ -121,7 +121,7 @@ schemas:
 | L3 | 100% — `@`/`@@` chirality, directional bonds, parity-correct canonical SMILES; every stereo fixture |
 | SMILES | 100% — ingestion + deterministic emission, every `structure/smiles/*` fixture (asciichem-tests v0.8.0) |
 | molfile | 100% — V2000 ingestion + emission, every `structure/molfile/*` fixture |
-| L2 (MathML goldens) | 100% — byte-identical against the corpus goldens; embedded-math rows are `referenceRender` (they embed the reference's Plurimath output): the `plurimath-posture` CI job installs `@plurimath/plurimath-ts` and renders them live through it, while the default math-less posture skips them — a posture, not a failure |
+| L2 (MathML goldens) | 100% — byte-identical against the corpus goldens; embedded-math rows are `referenceRender` (they embed the reference's Plurimath output): the `plurimath-posture` CI job installs `@plurimath/plurimath` and renders them live through it, while the default math-less posture skips them — a posture, not a failure |
 | identifiers | 100% — the offline validator agrees with every `valid` marker |
 | L4 (linter) | 100% — diagnostics match every expectation; the `inchi-posture` CI job installs the chemomer wasm engine and runs the engine-`inchi` cases, while the default job runs the no-engine posture (a posture, not a failure) |
 | CML | 100% — three-way round-trip (`parse → toCml → parse → toText === input`) for every `cml-roundtrip` fixture, through the leptris engine; the `aci:` channels carry crystal/spectrum/calculation/zmatrix/mechanism and reaction conditions |

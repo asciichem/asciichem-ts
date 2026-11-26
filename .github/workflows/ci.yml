@@ -88,6 +88,6 @@ jobs:
         # 0.1.0: the first published native TypeScript Plurimath —
         # embedded math renders byte-identically with the reference
         # through it, so the corpus's referenceRender rows go live.
-        run: npm install --no-save @plurimath/plurimath-ts@^0.1.0
+        run: npm install --no-save @plurimath/plurimath@^0.1.0
       - run: npm run typecheck
       - run: npm test

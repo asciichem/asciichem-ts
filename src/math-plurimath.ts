@@ -1,5 +1,5 @@
 // The plurimath-ts math engine — the OPTIONAL math extra for
-// asciichem-ts. The npm package `@plurimath/plurimath-ts` (the native
+// asciichem-ts. The npm package `@plurimath/plurimath` (the native
 // TypeScript Plurimath) renders AsciiMath to MathML and LaTeX;
 // embedded math (`K_c = 1` between backticks) renders through it
 // byte-identically with the reference. AsciiMath is never
@@ -11,7 +11,7 @@
 // between `$...$` in latex — the corpus's referenceRender rows skip).
 // Installing the extra flips the posture:
 //
-//   npm install @plurimath/plurimath-ts   # the math extra (README)
+//   npm install @plurimath/plurimath   # the math extra (README)
 //
 // CI mirrors the chemomer posture's two-job shape: the default job
 // runs the math-less posture; the `plurimath-posture` job installs
@@ -21,10 +21,12 @@ import { createRequire } from "node:module";
 import { AsciiChemError } from "./errors.js";
 
 interface PlurimathCompat {
-  new (data: string, format: string): {
-    toMathml(): string;
-    toLatex(): string;
-  };
+  new (data: string, format: string): { data: unknown; toLatex(): string };
+}
+
+interface PlurimathDeepApi {
+  toMathml(node: unknown, options?: { displayStyle?: boolean | string | null }): string;
+  toLatex(node: unknown): string;
 }
 
 interface PlurimathMathEngine {
@@ -39,7 +41,7 @@ let engine: PlurimathMathEngine | null = null;
 // decide its posture at describe-eval time and register in beforeAll.
 export function plurimathAvailable(): boolean {
   try {
-    createRequire(import.meta.url).resolve("@plurimath/plurimath-ts");
+    createRequire(import.meta.url).resolve("@plurimath/plurimath");
     return true;
   } catch {
     return false;
@@ -53,21 +55,30 @@ export function plurimathAvailable(): boolean {
 export async function registerPlurimathMath(): Promise<void> {
   if (engine) return;
   // The specifier is a variable so typecheck passes in the math-less
-  // posture (the extra is not a dependency of this package); the
-  // runtime shape is verified below, like the chemomer extra.
-  const specifier = "@plurimath/plurimath-ts";
-  const mod = (await import(/* @vite-ignore */ specifier)) as { Plurimath?: PlurimathCompat; default?: PlurimathCompat };
-  const Plurimath = mod.Plurimath ?? mod.default;
-  if (typeof Plurimath !== "function") {
+  // posture (the extra is not a dependency of this package). The
+  // parse rides the compat class (the package's own Asciimath
+  // pipeline, wrapping exactly as its CLI does) and the render rides
+  // the deep per-format entries with the reference's option surface —
+  // the same call the package's CLI makes (`displayStyle` is always
+  // given, "true" unless said otherwise).
+  const specifier = "@plurimath/plurimath";
+  const [compat, mathml, latex] = (await Promise.all([
+    import(/* @vite-ignore */ specifier),
+    import(/* @vite-ignore */ `${specifier}/mathml`),
+    import(/* @vite-ignore */ `${specifier}/latex`),
+  ])) as [{ Plurimath?: PlurimathCompat; default?: PlurimathCompat }, { toMathml: PlurimathDeepApi["toMathml"] }, { toLatex: PlurimathDeepApi["toLatex"] }];
+  const Plurimath = compat.Plurimath ?? compat.default;
+  if (typeof Plurimath !== "function" || typeof mathml.toMathml !== "function" || typeof latex.toLatex !== "function") {
     throw new AsciiChemError(
-      "the @plurimath/plurimath-ts package does not export the compat class — upgrade the math extra",
+      "the @plurimath/plurimath package does not expose the render API — upgrade the math extra",
     );
   }
   const { initCml } = await import("./cml.js");
   await initCml();
   engine = {
     mathml(source: string): string {
-      return new Plurimath(source, "asciimath").toMathml();
+      const formula = new Plurimath(source, "asciimath");
+      return mathml.toMathml(formula.data, { displayStyle: true });
     },
     latex(source: string): string {
       return new Plurimath(source, "asciimath").toLatex();
