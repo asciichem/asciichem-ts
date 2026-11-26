@@ -23,7 +23,17 @@ import { Substance, type ResolverIdentifier, type ResolverProperty } from "./sub
 
 const BASE = "https://commonchemistry.cas.org/direct-api/detail";
 const ORIGIN = "https://commonchemistry.cas.org/api-overview";
-const KEY_FILE = `${homedir()}/.config/cas-common-chemistry-api.key`;
+
+// The key file resolves at call time (never at module init): browsers
+// bundle this module and their `node:os` stub has no homedir — a
+// top-level call would kill the whole chunk. Null = no key file.
+function keyFile(): string | null {
+  try {
+    return `${homedir()}/.config/cas-common-chemistry-api.key`;
+  } catch {
+    return null;
+  }
+}
 
 // The request URL — pinned byte-exactly by the corpus.
 export function commonChemistryUrl(value: string): string {
@@ -47,8 +57,10 @@ export function commonChemistryHeaders(apiKey: string | null): Record<string, st
 export function defaultApiKey(env: NodeJS.ProcessEnv = process.env): string | null {
   const fromEnv = env.COMMON_CHEMISTRY_API_KEY;
   if (fromEnv !== undefined && fromEnv !== "") return fromEnv;
+  const file = keyFile();
+  if (file === null) return null;
   try {
-    return readFileSync(KEY_FILE, "utf8").trim() || null;
+    return readFileSync(file, "utf8").trim() || null;
   } catch {
     return null;
   }
