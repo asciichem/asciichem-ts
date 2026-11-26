@@ -85,9 +85,11 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install the plurimath math extra (never saved — optional by contract)
-        # 0.1.0: the first published native TypeScript Plurimath —
-        # embedded math renders byte-identically with the reference
-        # through it, so the corpus's referenceRender rows go live.
-        run: npm install --no-save @plurimath/plurimath@^0.1.0
+        # ^1.0.0: the native TypeScript Plurimath takeover — the npm
+        # name moved from the Opal build to this implementation at
+        # 1.0.0 (0.1.0 was immutably taken by the Opal line's ancient
+        # first release). Embedded math renders through it, so the
+        # corpus's referenceRender rows go live.
+        run: npm install --no-save @plurimath/plurimath@^1.0.0
       - run: npm run typecheck
       - run: npm test
