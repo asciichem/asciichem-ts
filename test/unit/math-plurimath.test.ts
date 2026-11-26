@@ -37,9 +37,10 @@ describe("plurimath math engine", () => {
     expect(formula.toLatex()).toBe("\\ce{$K_{c} = 1$}");
     expect(formula.toHtml()).toContain('displaystyle="true"');
     expect(formula.toHtml()).toContain("<msub>");
-    // The gem's MathML-4 output (plurimath#477): displaystyle rides
-    // <math>, no <mstyle> wrapper.
-    expect(renderMathml(formula)).toContain('displaystyle="true"');
-    expect(renderMathml(formula)).not.toContain("<mstyle");
+    // The mathml surface grafts the engine's children into the
+    // formula's mrow (the engine's <math> wrapper — and its
+    // displaystyle attribute with it — is not part of that surface).
+    expect(renderMathml(formula)).toContain('<msub xmlns="http://www.w3.org/1998/Math/MathML">');
+    expect(renderMathml(formula)).toContain("<mo xmlns=");
   });
 });
