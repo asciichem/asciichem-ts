@@ -64,7 +64,9 @@ function convertElement(node: LeptElement, topLevel: boolean): XmlElement {
     if (name === "xmlns") continue;
     attrs[name] = value;
   }
-  const texts = node.children.filter((child) => child.kind === "text" || child.kind === "cdata");
+  const texts = node.children.filter(
+    (child) => (child.kind === "text" || child.kind === "cdata") && ("text" in child ? child.text.trim() !== "" : false),
+  );
   const elements = node.children.filter((child): child is LeptElement => child.kind === "element");
   if (elements.length === 0) {
     return { name: node.localName, attrs, text: texts.map((t) => ("text" in t ? t.text : "")).join("") };

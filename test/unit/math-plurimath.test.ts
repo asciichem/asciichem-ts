@@ -1,5 +1,5 @@
 // Unit coverage for the plurimath math engine (src/math-plurimath.ts)
-// — the optional math extra. When @plurimath/plurimath-ts is installed
+// — the optional math extra. When @plurimath/plurimath is installed
 // (the plurimath-posture CI job installs it), embedded math renders
 // byte-identically with the reference through the engine; when it is
 // absent, the renderers degrade and the tests assert the degradation —
