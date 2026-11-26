@@ -21,7 +21,7 @@ import { createRequire } from "node:module";
 import { AsciiChemError } from "./errors.js";
 
 interface PlurimathCompat {
-  new (data: string, format: string): { data: unknown; toLatex(): string };
+  new (data: string, format: string): { data: unknown; toMathml(): string; toLatex(): string };
 }
 
 interface PlurimathDeepApi {
@@ -81,6 +81,36 @@ export async function registerPlurimathMath(): Promise<void> {
       return mathml.toMathml(formula.data, { displayStyle: true });
     },
     latex(source: string): string {
+      return new Plurimath(source, "asciimath").toLatex();
+    },
+  };
+}
+
+// The browser path: bundlers resolve `import("@plurimath/plurimath")`
+// themselves (a chunk, not a runtime specifier), and the node-only
+// createRequire resolution above cannot run there — so the consumer
+// imports the module(s) and hands them over. The three entries are
+// optional: an absent mathml/latex entry renders that surface through
+// the compat class's own method.
+export function registerPlurimathMathFromModule(
+  mod: { Plurimath?: PlurimathCompat; default?: PlurimathCompat },
+  entries?: { mathml?: { toMathml: PlurimathDeepApi["toMathml"] }; latex?: { toLatex: PlurimathDeepApi["toLatex"] } },
+): void {
+  if (engine) return;
+  const Plurimath = mod.Plurimath ?? mod.default;
+  if (typeof Plurimath !== "function") {
+    throw new AsciiChemError(
+      "the @plurimath/plurimath package does not expose the compat class — upgrade the math extra",
+    );
+  }
+  engine = {
+    mathml(source: string): string {
+      const formula = new Plurimath(source, "asciimath");
+      if (entries?.mathml) return entries.mathml.toMathml(formula.data, { displayStyle: true });
+      return formula.toMathml();
+    },
+    latex(source: string): string {
+      if (entries?.latex) return entries.latex.toLatex(new Plurimath(source, "asciimath").data);
       return new Plurimath(source, "asciimath").toLatex();
     },
   };
