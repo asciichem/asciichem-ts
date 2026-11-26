@@ -12,7 +12,7 @@ env:
   # CORPUS_REF pins the suite 0.11.0 tag (the parity families:
   # resolver, citation, CLI + the engine-scaled linter; re-pointed to
   # carry the @chebi no-validator fixture fix).
-  CORPUS_REF: v0.26.0
+  CORPUS_REF: v0.27.0
   MODEL_REF: v0.11.0
 
 jobs:
