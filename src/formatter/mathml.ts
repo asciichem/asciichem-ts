@@ -58,12 +58,15 @@ type LeptNode = ReturnType<typeof leptris.treeSync>["children"][number];
 type LeptElement = Extract<LeptNode, { kind: "element" }>;
 
 function convertElement(node: LeptElement, topLevel: boolean): XmlElement {
-  const attrs: Record<string, string> = {};
-  if (topLevel) attrs.xmlns = node.namespaceURI ?? MATHML_NS;
+  // An empty attrs object would serialize as `<mi >` — attrs stay
+  // undefined unless something is actually set.
+  const pairs: [string, string][] = [];
+  if (topLevel) pairs.push(["xmlns", node.namespaceURI ?? MATHML_NS]);
   for (const [name, value] of node.attributes) {
     if (name === "xmlns") continue;
-    attrs[name] = value;
+    pairs.push([name, value]);
   }
+  const attrs: Record<string, string> | undefined = pairs.length > 0 ? Object.fromEntries(pairs) : undefined;
   const texts = node.children.filter(
     (child) => (child.kind === "text" || child.kind === "cdata") && ("text" in child ? child.text.trim() !== "" : false),
   );
