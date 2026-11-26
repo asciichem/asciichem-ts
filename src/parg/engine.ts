@@ -27,7 +27,6 @@ import { PargRuntime } from "parsanol";
 // The artifact is statically bundled (both dist builds inline it) so
 // browsers never touch fs; the node path still reads the file for the
 // byte-exact checksum pin.
-import artifactBundled from "./asciichem.json" with { type: "json" };
 import type { FormulaCapture } from "../transform.js";
 import { ParseError } from "../errors.js";
 
@@ -51,39 +50,39 @@ const ENTRY = "formula";
 // through an explicit initialize() (the node build reads the artifact
 // and compiles lazily — no init needed). Bundlers map the import to
 // the browser build via the package's exports conditions.
-export async function initBrowserEngine(): Promise<void> {
+export async function initBrowserEngine(options: {
+  artifactUrl: string | URL;
+}): Promise<void> {
   const browser = await import("parsanol/browser");
   await browser.initialize();
+  cachedBrowserRuntime = await browser.PargRuntime.fromURL(options.artifactUrl, ENTRY);
 }
 let cachedRuntime: PargRuntime | null = null;
+let cachedBrowserRuntime: import("parsanol/browser").PargRuntime | null = null;
 
 function runtime(): PargRuntime {
   if (cachedRuntime === null) {
-    let artifactJson: string;
-    try {
-      artifactJson = readFileSync(
-        new URL("./asciichem.json", import.meta.url),
-        "utf8",
+    if (cachedBrowserRuntime !== null) {
+      // Both builds wrap the same core; the parse surface is identical.
+      return (cachedRuntime = cachedBrowserRuntime as unknown as PargRuntime);
+    }
+    if (typeof process === "undefined" || process.versions?.node === undefined) {
+      throw new Error(
+        "the browser parse engine needs initBrowserEngine({ artifactUrl }) — " +
+          "serve the vendored artifact and pass its URL (parsanol fetches and " +
+          "checksums it over HTTP)",
       );
-      const checksum = createHash("sha256").update(artifactJson).digest("hex");
-      if (checksum !== ARTIFACT_SHA256) {
-        throw new Error(
-          `vendored PARG artifact checksum ${checksum} does not match the ` +
-            `pinned revision ${ARTIFACT_SHA256} — re-vendor from asciichem-grammar`,
-        );
-      }
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("checksum") === false &&
-        error.message.includes("re-vendor") === false
-      ) {
-        // fs is stubbed/unavailable (a browser bundle): the statically
-        // bundled artifact applies, verified by the version pin below.
-        artifactJson = JSON.stringify(artifactBundled);
-      } else {
-        throw error;
-      }
+    }
+    const artifactJson = readFileSync(
+      new URL("./asciichem.json", import.meta.url),
+      "utf8",
+    );
+    const checksum = createHash("sha256").update(artifactJson).digest("hex");
+    if (checksum !== ARTIFACT_SHA256) {
+      throw new Error(
+        `vendored PARG artifact checksum ${checksum} does not match the ` +
+          `pinned revision ${ARTIFACT_SHA256} — re-vendor from asciichem-grammar`,
+      );
     }
     const rt = new PargRuntime(artifactJson, ENTRY);
     const version = rt.envelope.version as string;
