@@ -46,6 +46,15 @@ const ENTRY = "formula";
 
 // The wasm engine compiles lazily on first parse (~1.5 MB); importing
 // this module costs nothing.
+
+// The browser surface: parsanol's browser build compiles the wasm
+// through an explicit initialize() (the node build reads the artifact
+// and compiles lazily — no init needed). Bundlers map the import to
+// the browser build via the package's exports conditions.
+export async function initBrowserEngine(): Promise<void> {
+  const browser = await import("parsanol/browser");
+  await browser.initialize();
+}
 let cachedRuntime: PargRuntime | null = null;
 
 function runtime(): PargRuntime {

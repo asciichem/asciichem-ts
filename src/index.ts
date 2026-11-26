@@ -76,6 +76,7 @@ export {
 } from "./inchi.js";
 export { chemomerAvailable, registerChemomerEngine } from "./inchi-chemomer.js";
 export { plurimathAvailable, registerPlurimathMath, registerPlurimathMathFromModule } from "./math-plurimath.js";
+export { initBrowserEngine } from "./parg/engine.js";
 export {
   runLinter,
   hasLintErrors,
