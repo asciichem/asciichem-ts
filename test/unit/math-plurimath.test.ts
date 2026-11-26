@@ -35,8 +35,11 @@ describe("plurimath math engine", () => {
     await registerPlurimathMath();
     const formula = parseText("`K_c = 1`");
     expect(formula.toLatex()).toBe("\\ce{$K_{c} = 1$}");
-    expect(formula.toHtml()).toContain('display="block"');
+    expect(formula.toHtml()).toContain('displaystyle="true"');
     expect(formula.toHtml()).toContain("<msub>");
-    expect(renderMathml(formula)).toContain("<mstyle");
+    // The gem's MathML-4 output (plurimath#477): displaystyle rides
+    // <math>, no <mstyle> wrapper.
+    expect(renderMathml(formula)).toContain('displaystyle="true"');
+    expect(renderMathml(formula)).not.toContain("<mstyle");
   });
 });
