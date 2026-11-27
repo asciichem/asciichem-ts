@@ -104,7 +104,13 @@ export function synthesizeStereoWedges(
     const sign = Math.sign(orientation(points));
     if (sign === 0) return;
 
-    const target = atom.chirality === "TH1" ? 1 : -1;
+    // The fitted polarity (asciichem-rs's tests/stereo_depiction.rs
+    // oracle gate): the stated-H construction (two out-of-plane
+    // ligands) and the four-drawn-ligand construction (one apex) are
+    // different point sets, so TH1's orientation target differs per
+    // construction — each fitted against the engine, TH2 negated.
+    const target =
+      atom.chirality === "TH1" === statedH ? 1 : -1;
     used.add(bondIndex);
     claimed.set(bondIndex, {
       center: index,
