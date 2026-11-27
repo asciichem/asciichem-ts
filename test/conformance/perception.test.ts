@@ -41,9 +41,11 @@ describe("perception conformance corpus", () => {
     it(`${c.id}: perceives the shared implicit hydrogens`, () => {
       const molecule = parseSmiles(c.smiles).nodes[0] as Molecule;
       const { atoms, edges } = buildGraph(molecule);
-      const hydrogens = atoms.map((atom, i) =>
-        implicitHydrogens(atom, hydrogenValenceSum(i, edges)),
-      );
+      const rings = aromaticRings(atoms, edges);
+      const hydrogens = atoms.map((atom, i) => {
+        const ring = rings.find((r) => r.includes(i)) ?? null;
+        return implicitHydrogens(atom, hydrogenValenceSum(i, edges, ring, atoms));
+      });
       expect(hydrogens).toEqual(c.perception.implicitHydrogens);
     });
 

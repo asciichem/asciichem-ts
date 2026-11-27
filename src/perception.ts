@@ -62,14 +62,61 @@ export function bondOrderSum(atomIndex: number, edges: Edge[]): number {
 
 // Hydrogen-counting sum: aromatic bonds order as 1.5 (Hückel), so
 // both spellings of benzene sum to 3.0 at every carbon and perceive
-// one implicit hydrogen.
-export function hydrogenValenceSum(atomIndex: number, edges: Edge[]): number {
+// one implicit hydrogen. When a detected aromatic five-membered ring
+// is supplied, its lone-pair donation donor counts its ring bonds as
+// the kekulized singles the donation model implies (pyrrole N: two
+// singles + one H = valence 3 → one implicit hydrogen; furan O: two
+// singles = valence 2 → none) — the blanket 1.5 sum over-values a
+// donor (3.0 against valence 2 or 3) and would decline exactly the
+// heteroatoms the donation rule exists to answer.
+export function hydrogenValenceSum(
+  atomIndex: number,
+  edges: Edge[],
+  ring: number[] | null = null,
+  atoms: Atom[] | null = null,
+): number {
+  const donor = ring && atoms && donationDonor(atoms[atomIndex], atoms, atomIndex, edges, ring);
   let sum = 0;
   for (const edge of edges) {
     if (edge.from !== atomIndex && edge.to !== atomIndex) continue;
-    sum += edge.kind === "aromatic" ? AROMATIC_H_ORDER : (BOND_ORDER[edge.kind] ?? 1);
+    if (edge.kind === "aromatic") {
+      sum += donor ? 1.0 : AROMATIC_H_ORDER;
+    } else {
+      sum += BOND_ORDER[edge.kind] ?? 1;
+    }
   }
   return sum;
+}
+
+// The donation donor of an aromatic five-membered ring: a
+// lone-pair-donating element with no in-system double bond of its
+// own (its 2π come from the lone pair), uncharged, with no stated
+// hydrogens (a stated count is the source's word — never
+// re-derived), and **unique among nitrogens** — the donation is one
+// lone pair per ring, so a plain `n` beside another donor element
+// (imidazole's `n` beside an `[nH]`, oxazole's `n` beside the `o`)
+// is pyridine-type: it keeps the blanket Hückel sum and answers
+// zero. O and S are the preferred donors and do not defer (oxazole's
+// `o` stays the donor beside its `n`).
+export function donationDonor(
+  atom: Atom,
+  atoms: Atom[],
+  atomIndex: number,
+  edges: Edge[],
+  ring: number[],
+): boolean {
+  if (ring.length !== 5) return false;
+  if (!ring.includes(atomIndex)) return false;
+  if (atom.charge != null || atom.hydrogens != null) return false;
+  if (!LONE_PAIR_DONORS.includes(atom.element)) return false;
+  if (inSystemDouble(atomIndex, edges, new Set(ring))) return false;
+  if (atom.element === "N") {
+    for (const otherIndex of ring) {
+      if (otherIndex === atomIndex) continue;
+      if (LONE_PAIR_DONORS.includes(atoms[otherIndex].element)) return false;
+    }
+  }
+  return true;
 }
 
 // Whole-number, non-negative gaps between each default valence and

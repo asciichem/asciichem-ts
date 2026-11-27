@@ -442,7 +442,10 @@ function writeMolecule(molecule: Molecule): string {
       // SMILES does ([nH]), and aromatic 1.5 bond orders do not map
       // onto heteroatom valences.
       if (atoms[atom].aromatic !== true) {
-        perceivedHydrogens.set(atom, implicitHydrogens(atoms[atom], hydrogenValenceSum(atom, edges)));
+        perceivedHydrogens.set(
+          atom,
+          implicitHydrogens(atoms[atom], hydrogenValenceSum(atom, edges, ring, atoms)),
+        );
       }
     }
     ring.forEach((atom, i) => {
