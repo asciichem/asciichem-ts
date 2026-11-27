@@ -35,15 +35,6 @@ describe("generated differential conformance", () => {
   cases.forEach((c, i) => {
     it(`case ${i}: renders and re-parses identically`, () => {
       const formula = fromModelJSON(JSON.stringify(c.wire));
-      if (i === 0) {
-        const probe: any[] = [];
-        const walk = (n: any) => {
-          if (n.chirality) probe.push(n.chirality);
-          (n.nodes ?? []).forEach(walk);
-        };
-        walk(formula);
-        console.log("PROBE chirality:", JSON.stringify(probe));
-      }
       expect(formula.toText()).toBe(c.text);
       const reparsed = parseText(c.text);
       expect(JSON.parse(JSON.stringify(toWireNode(reparsed)))).toEqual(c.wire);

@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { parseText } from "../../src/parser.js";
+import { parseMolfile } from "../../src/molfile.js";
 import { Formula } from "../../src/model.js";
+import { StructuralSvgFormatter } from "../../src/formatter/structural-svg.js";
 import "../../src/index.js";
+
+const WEDGE_STEREO_MOLFILE =
+  "2-butanol-wedge\n  fixture\n\n  5  4  0  0  0  0  0  0  0  0999 V2000\n   -1.5000    0.2500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.7500   -0.2500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.0000    0.2500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    0.7500   -0.2500    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\n   -0.7500   -1.2500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  1  0  0  0  0  0  0  0\n  2  3  1  0  0  0  0  0  0  0  0\n  3  4  1  0  0  0  0  0  0  0  0\n  2  5  1  0  0  0  0  0  0  0  0\nM  END\n";
+
+function structural(input: string): string {
+  return parseText(input).toStructuralSvg();
+}
 
 describe("linear SVG", () => {
   it("renders water with true subscripts", () => {
@@ -94,5 +103,51 @@ describe("structural SVG", () => {
       // Each child carries its own (negative-origin) viewBox.
       expect(vb).toMatch(/^-[\d.]+ -[\d.]+ \d/);
     }
+  });
+});
+
+describe("stereo wedge synthesis", () => {
+  it("renders enantiomer pairs as distinguishable drawings", () => {
+    // The enantiomer-pair test (asciichem-rs#82): the @ parity draws
+    // its ligand away (hash), the @@ parity toward (wedge) — opposite
+    // out-of-plane directions, never two identical flat drawings.
+    const l = structural('@smiles("C[C@H](O)N")');
+    const d = structural('@smiles("C[C@@H](O)N")');
+    expect(l).not.toBe(d);
+    expect(l).not.toContain("<polygon");
+    expect(l).toMatch(/stroke-width="1\.2"/); // hash hatches
+    expect(d).toContain("<polygon"); // wedge
+    expect(d).not.toMatch(/stroke-width="1\.2"/);
+  });
+
+  it("synthesizes one wedge per stated-parity carbon on its first bond", () => {
+    // l-alanine: the chiral carbon's first bond carries the glyph,
+    // oriented centre → neighbour.
+    const svg = structural('@smiles("N[C@@H](C)C(=O)O")');
+    expect([...svg.matchAll(/<polygon /g)].length).toBe(1);
+  });
+
+  it("declines synthesis when the ligand set is not tetrahedral", () => {
+    // C[C@H](O): the chiral carbon has two drawn neighbours + the
+    // stated hydrogen — three ligands, no drawable tetrahedron, no
+    // invented glyph.
+    const svg = structural('@smiles("C[C@H](O)")');
+    expect(svg).not.toContain("<polygon");
+    expect(svg).not.toMatch(/stroke-width="1\.2"/);
+  });
+
+  it("leaves molecules without parity exactly as before", () => {
+    const svg = structural("C-C(-O)-N");
+    expect(svg).not.toContain("<polygon");
+    expect(svg).not.toMatch(/stroke-width="1\.2"/);
+  });
+
+  it("draws authored wedges verbatim (no double synthesis)", () => {
+    // The 2-butanol corpus molfile carries an authored up-wedge on
+    // bond 1-2 and no atom parity — the renderer draws exactly the
+    // authored glyph, nothing synthesized.
+    const molecule = parseMolfile(WEDGE_STEREO_MOLFILE);
+    const svg = new StructuralSvgFormatter().renderTop(molecule);
+    expect([...svg.matchAll(/<polygon /g)].length).toBe(1);
   });
 });
