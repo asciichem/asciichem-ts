@@ -60,47 +60,47 @@ export function unclosedRingAtoms(atoms: Atom[]): number[] {
 
 // Walks a molecule into a neutral atom+bond graph. Bond tokens
 // connect the last atom of the previous unit to the first atom of
-// the next; nested groups contribute their walk order.
+// the next; nested groups contribute their walk order. A group whose
+// first node (unwrapping nested molecules) is a bond is a BRANCH
+// group: the leading bond attaches the branch to the atom before the
+// group, and the continuation resumes from that root — `C(-O)=O`
+// reads C-O and C=O, never O=O.
 export function walkMolecule(molecule: Molecule): LayoutGraph {
   const atoms: Atom[] = [];
   const bonds: LayoutGraph["bonds"] = [];
-
-  const walk = (node: Node): { first: number; last: number } | undefined => {
-    if (node instanceof Atom) {
-      atoms.push(node);
-      return { first: atoms.length - 1, last: atoms.length - 1 };
-    }
-    if (node instanceof Group) {
-      let first: number | undefined;
-      let last: number | undefined;
-      for (const child of node.nodes) {
-        const span = walk(child);
-        if (span) {
-          if (first === undefined) first = span.first;
-          last = span.last;
-        }
-      }
-      return first !== undefined && last !== undefined ? { first, last } : undefined;
-    }
-    return undefined;
-  };
-
   let previous: number | undefined;
   let pendingBond: Bond | undefined;
-  for (const unit of molecule.nodes) {
-    if (unit instanceof Bond) {
-      pendingBond = unit;
-      continue;
-    }
-    const span = walk(unit);
-    if (span) {
-      if (previous !== undefined && pendingBond) {
-        bonds.push({ from: previous, to: span.first, bond: pendingBond });
+
+  const walkNodes = (nodes: Node[]): void => {
+    for (const unit of nodes) {
+      if (unit instanceof Bond) {
+        pendingBond = unit;
+        continue;
       }
-      previous = span.last;
-      pendingBond = undefined;
+      if (unit instanceof Atom) {
+        atoms.push(unit);
+        const index = atoms.length - 1;
+        if (pendingBond && previous !== undefined) {
+          bonds.push({ from: previous, to: index, bond: pendingBond });
+        }
+        previous = index;
+        pendingBond = undefined;
+        continue;
+      }
+      if (unit instanceof Group || unit instanceof Molecule) {
+        let branchRoot: number | undefined;
+        if (unit instanceof Group && previous !== undefined) {
+          let first: Node | undefined = unit.nodes[0];
+          while (first instanceof Molecule) first = first.nodes[0];
+          if (first instanceof Bond) branchRoot = previous;
+        }
+        walkNodes(unit.nodes);
+        if (branchRoot !== undefined) previous = branchRoot;
+      }
     }
-  }
+  };
+
+  walkNodes(molecule.nodes);
 
   const rings = ringBonds(atoms);
   for (const ring of rings) {

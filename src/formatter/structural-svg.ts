@@ -24,11 +24,111 @@ import {
   registerRenderer,
 } from "../model.js";
 import { Bond } from "../model.js";
-import { layoutMolecule, Point, unclosedRingAtoms } from "../layout.js";
+import { layoutMolecule, LayoutGraph, Point, unclosedRingAtoms } from "../layout.js";
 import { SvgFormatter } from "./svg.js";
 
 const FONT_SIZE = 15;
 const LABEL_RADIUS = 11; // bond lines stop this far from atom centers
+
+// Tetrahedral wedge synthesis: a chirality-carrying atom (the SMILES
+// @/@@ parity, TH1/TH2 in the model) with no authored wedge/hash of
+// its own draws one synthesized wedge/hash so enantiomers render as
+// distinguishable drawings. The model's parity is defined against the
+// reference ligand order — the stated hydrogens first, then the
+// neighbours in bond order (the SMILES writer's chirality order) —
+// and the synthesized wedge realizes that hand against the laid-out
+// neighbour geometry: the wedged ligand rises out of the plane (hash:
+// sinks), the stated hydrogen sits at the tetrahedral completion
+// opposite the drawn neighbours, and the wedge/hash choice is the one
+// whose 3D orientation matches the parity. Synthesis declines (the
+// drawing renders exactly as without it) rather than guesses: atoms
+// whose ligand set is not tetrahedral, atoms with no claimable plain
+// single bond, and degenerate (zero-volume) drawn geometries.
+interface SynthesizedWedge {
+  center: number;
+  neighbor: number;
+  hash: boolean;
+}
+
+export function synthesizeStereoWedges(
+  graph: LayoutGraph,
+  positions: Point[],
+): Map<number, SynthesizedWedge> {
+  const claimed = new Map<number, SynthesizedWedge>();
+  const used = new Set<number>();
+
+  graph.atoms.forEach((atom, index) => {
+    if (atom.chirality !== "TH1" && atom.chirality !== "TH2") return;
+    const statedH = (atom.hydrogens ?? 0) > 0;
+
+    const neighbors: number[] = [];
+    graph.bonds.forEach((bond) => {
+      if (bond.from === index) neighbors.push(bond.to);
+      else if (bond.to === index) neighbors.push(bond.from);
+    });
+    if (new Set(neighbors).size !== neighbors.length) return;
+    if (neighbors.length + (statedH ? 1 : 0) !== 4) return;
+
+    // Claim this centre's wedge on the first incident bond (bond
+    // order) that is a plain single and not already carrying another
+    // centre's synthesized wedge; authored wedge/hash bonds are
+    // rendered verbatim and never claimed.
+    let bondIndex = -1;
+    let neighbor = -1;
+    graph.bonds.forEach((bond, i) => {
+      if (bondIndex !== -1 || used.has(i) || bond.bond.kind !== "single") return;
+      if (bond.from !== index && bond.to !== index) return;
+      bondIndex = i;
+      neighbor = bond.from === index ? bond.to : bond.from;
+    });
+    if (bondIndex === -1) return;
+    const wedgeSlot = neighbors.indexOf(neighbor);
+
+    const center = positions[index];
+    const vectors = neighbors.map((n) => ({
+      x: positions[n].x - center.x,
+      y: positions[n].y - center.y,
+    }));
+    const hx = -vectors.reduce((sum, v) => sum + v.x, 0);
+    const hy = -vectors.reduce((sum, v) => sum + v.y, 0);
+
+    // Ligand points in reference order under a plain wedge (the
+    // wedged ligand at +z toward the viewer, the stated H opposite);
+    // a hash flips both out-of-plane signs, which inverts the
+    // orientation exactly once.
+    const points: [number, number, number][] = [];
+    if (statedH) points.push([hx, hy, -1]);
+    neighbors.forEach((_, i) => {
+      points.push([vectors[i].x, vectors[i].y, i === wedgeSlot ? 1 : 0]);
+    });
+    const sign = Math.sign(orientation(points));
+    if (sign === 0) return;
+
+    const target = atom.chirality === "TH1" ? 1 : -1;
+    used.add(bondIndex);
+    claimed.set(bondIndex, {
+      center: index,
+      neighbor,
+      hash: sign !== target,
+    });
+  });
+
+  return claimed;
+}
+
+// The orientation sign of a tetrahedral ligand set: the scalar triple
+// product of the first three ligand vectors against the fourth.
+function orientation(points: [number, number, number][]): number {
+  const [a, b, c, d] = points;
+  const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+  const w = [d[0] - a[0], d[1] - a[1], d[2] - a[2]];
+  return (
+    (u[1] * v[2] - u[2] * v[1]) * w[0] +
+    (u[2] * v[0] - u[0] * v[2]) * w[1] +
+    (u[0] * v[1] - u[1] * v[0]) * w[2]
+  );
+}
 
 export class StructuralSvgFormatter implements Visitor<string> {
   visitFormula(formula: Formula): string {
@@ -63,14 +163,28 @@ export class StructuralSvgFormatter implements Visitor<string> {
       return new SvgFormatter().render(molecule);
     }
     const { graph, positions } = layoutMolecule(molecule);
+    const wedges = synthesizeStereoWedges(graph, positions);
     const elements: string[] = [];
     const drawn = new Set<string>();
 
-    for (const bond of graph.bonds) {
+    for (const [bondIndex, bond] of graph.bonds.entries()) {
       const key = bond.from < bond.to ? `${bond.from}-${bond.to}` : `${bond.to}-${bond.from}`;
       if (drawn.has(key)) continue;
       drawn.add(key);
-      elements.push(bondElement(positions[bond.from], positions[bond.to], bond.bond));
+      const wedge = wedges.get(bondIndex);
+      if (wedge) {
+        // The synthesized glyph points centre → neighbour: narrow at
+        // the stereocentre, widening (or hatching) toward the ligand.
+        elements.push(
+          bondElement(
+            positions[wedge.center],
+            positions[wedge.neighbor],
+            new Bond(wedge.hash ? "hash" : "wedge"),
+          ),
+        );
+      } else {
+        elements.push(bondElement(positions[bond.from], positions[bond.to], bond.bond));
+      }
     }
 
     graph.atoms.forEach((atom, i) => {
