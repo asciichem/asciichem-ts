@@ -77,6 +77,7 @@ interface Fixture {
   html?: string;
   latex?: string;
   referenceRender?: boolean;
+  svg?: string;
   atoms?: number;
   bonds?: number;
   // identifiers family
@@ -168,8 +169,15 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
     (f) => typeof f.smiles === "string" && f.perception === undefined && f.input === undefined,
   );
   const referenceCases = fixtures.filter(
-    (f) => typeof f.input === "string" && typeof f.smiles === "string" && f.perception === undefined,
+    (f) =>
+      typeof f.input === "string" &&
+      typeof f.smiles === "string" &&
+      f.perception === undefined &&
+      f.svg === undefined,
   );
+  // The depiction family owns the svg-golden rows (the enantiomer-pair
+  // visual rows, asciichem-rs#82).
+  const depictionCases = fixtures.filter((f) => typeof f.svg === "string");
   const molfileCases = fixtures.filter((f) => typeof f.molfile === "string");
   const rinchiCases = fixtures.filter((f) => typeof f.rinchi === "string");
 
@@ -189,6 +197,7 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
       perceptionCases,
       smilesCases,
       referenceCases,
+      depictionCases,
       molfileCases,
       rinchiCases,
     ];
@@ -234,6 +243,17 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
   });
 
   // Structure interchange (TODO.v2 09): distinct keys, opt-in levels.
+  // The depiction family's golden bytes (asciichem-rs#82): every
+  // row's structural SVG re-renders byte-exactly — the enantiomer-pair
+  // rows are the wedge-synthesis visual acceptance.
+  describe.skipIf(depictionCases.length === 0)("depiction golden renders", () => {
+    for (const fixture of depictionCases) {
+      it(fixture.id, () => {
+        expect(parseText(fixture.input as string).toStructuralSvg()).toBe(fixture.svg);
+      });
+    }
+  });
+
   // The structure-reference family's recorded text column
   // (asciichem-tests#31): where the canonical text was recorded, the
   // runtime produces exactly that string (cross-runtime text parity
