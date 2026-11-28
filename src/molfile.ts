@@ -5,7 +5,11 @@
 import { Atom, Bond, BondKind, Formula, Molecule, Node } from "./model.js";
 import { ParseError } from "./errors.js";
 import { buildGraph, linearize, Edge } from "./structure.js";
-import { layoutMolecule } from "./layout.js";
+import { layoutMolecule, LayoutGraph, Point } from "./layout.js";
+import {
+  synthesizeStereoWedges,
+  synthesizeStereoWedgesMirrored,
+} from "./formatter/structural-svg.js";
 
 export function parseMolfile(text: string): Molecule {
   const lines = text.split(/\r?\n/);
@@ -215,33 +219,77 @@ export function writeMolfile(molecule: Molecule, name = ""): string {
     coords[uIndex] = { x: px + nx * length * side, y: py + ny * length * side };
   });
 
-  const wedges = new Map<number, { from: number; to: number; stereo: number }>();
-  atoms.forEach((atom, index) => {
-    if (atom.chirality !== "TH1" && atom.chirality !== "TH2") return;
-    const ligandBonds = edges
-      .map((edge, bondIndex) => ({ edge, bondIndex }))
-      .filter(({ edge }) => edge.from === index || edge.to === index);
-    const { x: cx, y: cy } = coords[index];
-    ligandBonds.slice(0, 3).forEach(({ edge }, slot) => {
-      const ligand = edge.from === index ? edge.to : edge.from;
-      const angle = ((90 + 120 * slot) * Math.PI) / 180;
-      coords[ligand] = { x: cx + 28 * Math.cos(angle), y: cy + 28 * Math.sin(angle) };
-    });
-    const first = ligandBonds[0];
-    const edge = first.edge;
-    const other = edge.from === index ? edge.to : edge.from;
-    wedges.set(first.bondIndex, {
-      from: index,
-      to: other,
-      stereo: atom.chirality === "TH1" ? 6 : 1,
-    });
-  });
+  // The drawing convention decides the wedge claim (asciichem-rs#86):
+  // a pure-laid drawing is computed in SVG orientation (y falls) and
+  // EMITTED in the molfile's y-rising convention — emitting the
+  // layout's y verbatim would describe the mirror drawing, and the
+  // engine would read the opposite enantiomer of whatever the wedge
+  // claims. Its claim runs the geometry-aware core the structural SVG
+  // renderer uses. An all-authored drawing keeps its coordinates
+  // verbatim and claims through the mirrored variant, which keeps
+  // write∘parse∘write a byte fixed point for chiral molecules. A
+  // mixed drawing keeps the zero-coordinate template (TH1 rises, TH2
+  // falls): no coherent geometry exists to reason against.
+  const layoutAligned = positions.length === baseAtoms;
+  const pureLaid =
+    layoutAligned &&
+    modelAtoms.every((atom) => atom.x2 === undefined && atom.y2 === undefined);
+  const allAuthored =
+    layoutAligned &&
+    modelAtoms.every((atom) => atom.x2 !== undefined && atom.y2 !== undefined);
 
+  const wedges = new Map<number, { from: number; to: number; stereo: number }>();
+  if (pureLaid || allAuthored) {
+    const graphView = {
+      atoms: modelAtoms,
+      bonds: modelEdges.map((edge) => ({
+        from: edge.from,
+        to: edge.to,
+        bond: new Bond(edge.kind),
+      })),
+      ringBonds: [],
+    };
+    const points = coords.slice(0, baseAtoms);
+    const claims = pureLaid
+      ? synthesizeStereoWedges(graphView, points)
+      : synthesizeStereoWedgesMirrored(graphView, points);
+    claims.forEach((claim, bondIndex) => {
+      wedges.set(bondIndex, {
+        from: claim.center,
+        to: claim.neighbor,
+        stereo: claim.hash ? 6 : 1,
+      });
+    });
+  } else {
+    atoms.forEach((atom, index) => {
+      if (atom.chirality !== "TH1" && atom.chirality !== "TH2") return;
+      const first = edges.findIndex((edge) => edge.from === index || edge.to === index);
+      if (first === -1) return;
+      const edge = edges[first];
+      wedges.set(first, {
+        from: index,
+        to: edge.from === index ? edge.to : edge.from,
+        stereo: atom.chirality === "TH1" ? 1 : 6,
+      });
+    });
+  }
+
+  const CHIRALITY_PARITY: Record<string, number> = { TH1: 1, TH2: 2 };
   atoms.forEach((atom, index) => {
     const { x, y } = coords[index];
+    // Pure-laid drawings speak SVG orientation; the molfile drawing
+    // convention is y rising (the flip is pure-laid only, and -0
+    // normalizes to 0).
+    const flipped = pureLaid ? -y : y;
+    const yy = flipped === 0 ? 0 : flipped;
     const z = atom.z2 ?? 0;
+    // The parity field rides every atom line (0 when achiral) and the
+    // H-count column carries the stated hydrogens (+1 code) — the
+    // oracle ignores both for 2D input, the wedge carries the layer.
+    const parity = atom.chirality !== undefined ? (CHIRALITY_PARITY[atom.chirality] ?? 0) : 0;
+    const hcount = (atom.hydrogens ?? -1) + 1;
     lines.push(
-      `${fixed(x)}${fixed(y)}${fixed(z)} ${atom.element.padEnd(3)} 0  0  0  0  0  0  0  0  0  0  0  0`,
+      `${fixed(x)}${fixed(yy)}${fixed(z)} ${atom.element.padEnd(3)} 0  0${pad3(parity)}${pad3(hcount)}  0  0  0  0  0  0  0  0`,
     );
   });
 
