@@ -78,6 +78,7 @@ interface Fixture {
   latex?: string;
   referenceRender?: boolean;
   svg?: string;
+  writtenMolfile?: string;
   atoms?: number;
   bonds?: number;
   // identifiers family
@@ -173,11 +174,14 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
       typeof f.input === "string" &&
       typeof f.smiles === "string" &&
       f.perception === undefined &&
-      f.svg === undefined,
+      f.svg === undefined &&
+      f.writtenMolfile === undefined,
   );
   // The depiction family owns the svg-golden rows (the enantiomer-pair
-  // visual rows, asciichem-rs#82).
+  // visual rows, asciichem-rs#82); the molfile-write family owns the
+  // writtenMolfile rows (the cross-runtime writer contract).
   const depictionCases = fixtures.filter((f) => typeof f.svg === "string");
+  const writeCases = fixtures.filter((f) => typeof f.writtenMolfile === "string");
   const molfileCases = fixtures.filter((f) => typeof f.molfile === "string");
   const rinchiCases = fixtures.filter((f) => typeof f.rinchi === "string");
 
@@ -198,6 +202,7 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
       smilesCases,
       referenceCases,
       depictionCases,
+      writeCases,
       molfileCases,
       rinchiCases,
     ];
@@ -250,6 +255,19 @@ describe.skipIf(!available)("asciichem-tests corpus", () => {
     for (const fixture of depictionCases) {
       it(fixture.id, () => {
         expect(parseText(fixture.input as string).toStructuralSvg()).toBe(fixture.svg);
+      });
+    }
+  });
+
+  // The molfile-write family's golden bytes (the cross-runtime writer
+  // contract): every row's laid molfile re-emits byte-exactly — the
+  // enantiomer pairs are the identity-facing acceptance (the drawn
+  // hand pairs with the wedge code).
+  describe.skipIf(writeCases.length === 0)("molfile-write golden writes", () => {
+    for (const fixture of writeCases) {
+      it(fixture.id, () => {
+        const molecule = parseSmiles(fixture.smiles as string).nodes[0];
+        expect(writeMolfile(molecule, "")).toBe(fixture.writtenMolfile);
       });
     }
   });
