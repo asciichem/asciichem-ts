@@ -54,6 +54,28 @@ export function synthesizeStereoWedges(
   graph: LayoutGraph,
   positions: Point[],
 ): Map<number, SynthesizedWedge> {
+  return synthesizeStereoWedgesIn(graph, positions, false);
+}
+
+// The mirrored-convention variant: the point set speaks the molfile
+// drawing convention (y rising) instead of the SVG's (y falling).
+// Mirroring the point set flips every orientation sign the core
+// reasons about, so the fitted targets invert with it — the glyphs
+// describe the same hands the unmirrored call would on the vertically
+// mirrored point set, which is what makes write∘parse∘write a byte
+// fixed point for chiral molecules (asciichem-rs#86).
+export function synthesizeStereoWedgesMirrored(
+  graph: LayoutGraph,
+  positions: Point[],
+): Map<number, SynthesizedWedge> {
+  return synthesizeStereoWedgesIn(graph, positions, true);
+}
+
+function synthesizeStereoWedgesIn(
+  graph: LayoutGraph,
+  positions: Point[],
+  invert: boolean,
+): Map<number, SynthesizedWedge> {
   const claimed = new Map<number, SynthesizedWedge>();
   const used = new Set<number>();
 
@@ -108,9 +130,12 @@ export function synthesizeStereoWedges(
     // oracle gate): the stated-H construction (two out-of-plane
     // ligands) and the four-drawn-ligand construction (one apex) are
     // different point sets, so TH1's orientation target differs per
-    // construction — each fitted against the engine, TH2 negated.
-    const target =
-      atom.chirality === "TH1" === statedH ? 1 : -1;
+    // construction — each fitted against the engine, TH2 negated. The
+    // mirrored convention (a molfile drawing speaks y-rising) inverts
+    // every target: mirroring the point set flips each orientation
+    // sign the core reasons about.
+    const [th1Stated, th1Drawn] = invert ? [-1, 1] : [1, -1];
+    const target = atom.chirality === "TH1" === statedH ? th1Stated : th1Drawn;
     used.add(bondIndex);
     claimed.set(bondIndex, {
       center: index,
